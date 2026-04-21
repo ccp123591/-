@@ -42,3 +42,7 @@ logs/
 # ===== 根目录临时截图 =====
 /fitcoach-train.png
 /train-desktop-*.png
+
+# ===== 比赛材料 & 本地说明(不上传) =====
+*.docx
+/CLAUDE.md
