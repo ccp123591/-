@@ -1,0 +1,35 @@
+{
+  "name": "FitCoach · AI 居家健身陪练",
+  "short_name": "FitCoach",
+  "description": "AI 居家健身陪练 · 实时姿态识别 + 智能教练 + 社交激励",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0f",
+  "theme_color": "#0a0a0f",
+  "lang": "zh-CN",
+  "categories": ["fitness", "health", "lifestyle"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512 any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "开始训练",
+      "short_name": "训练",
+      "url": "/train",
+      "icons": [{ "src": "/favicon.svg", "sizes": "96x96", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "训练记录",
+      "short_name": "记录",
+      "url": "/records",
+      "icons": [{ "src": "/favicon.svg", "sizes": "96x96", "type": "image/svg+xml" }]
+    }
+  ]
+}

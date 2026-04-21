@@ -1,0 +1,38 @@
+services:
+  backend:
+    build: ./backend
+    image: fitcoach-backend:dev
+    container_name: fitcoach-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_OPTS: "-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8 -Xms256m -Xmx512m"
+    volumes:
+      - backend-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -qO- http://localhost:8080/v3/api-docs >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    networks: [fitcoach]
+
+  frontend:
+    build: ./frontend
+    image: fitcoach-frontend:dev
+    container_name: fitcoach-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [fitcoach]
+
+volumes:
+  backend-uploads:
+
+networks:
+  fitcoach:
+    driver: bridge

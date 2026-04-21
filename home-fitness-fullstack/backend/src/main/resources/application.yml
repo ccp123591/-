@@ -1,0 +1,64 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: fitcoach-backend
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# JWT 配置
+jwt:
+  secret: fitcoach-jwt-secret-key-please-change-in-production-2026
+  access-token-expire-hours: 2
+  refresh-token-expire-days: 30
+
+# AI 教练配置（Claude / OpenAI 占位）
+ai:
+  coach:
+    enabled: true
+    provider: mock        # mock | claude | openai
+    claude:
+      api-key: ""
+      base-url: https://api.anthropic.com/v1
+      model: claude-haiku-4-5-20251001
+      max-tokens: 500
+
+# 文件上传
+upload:
+  dir: ./uploads
+  max-size: 10MB
+
+# 跨域（逗号分隔，供 @Value List<String> 绑定）
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:4173,http://localhost:8080
+
+# SpringDoc OpenAPI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  info:
+    title: FitCoach API
+    version: 3.0.0
+
+# 日志
+logging:
+  level:
+    root: INFO
+    com.fitcoach: DEBUG
+    org.springframework.security: INFO

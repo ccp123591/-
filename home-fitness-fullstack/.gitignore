@@ -1,0 +1,36 @@
+# ===== Node =====
+node_modules/
+npm-debug.log
+yarn-error.log
+pnpm-debug.log*
+.pnpm-store/
+
+# ===== Vite / Frontend build =====
+frontend/dist/
+frontend/.vite/
+frontend/stats.html
+
+# ===== Java / Maven =====
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.iml
+.settings/
+.classpath
+.project
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== Uploads =====
+backend/uploads/

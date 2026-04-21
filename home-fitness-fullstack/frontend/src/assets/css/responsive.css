@@ -1,0 +1,138 @@
+/* ============================================================
+   FitCoach — Responsive Layout
+   Mobile-first (default styles in base.css/components)
+   Breakpoints:  sm(480)  md(768)  lg(1024)  xl(1280)
+   ============================================================ */
+
+/* ====== Main content wrapper ====== */
+.app-main {
+  min-height: 100vh;
+  padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+  position: relative;
+  z-index: 1;
+}
+
+/* On tablet+: leave space for side nav */
+@media (min-width: 1024px) {
+  .app-main {
+    padding-left: var(--side-w);
+    padding-bottom: 0;
+    padding-top: var(--top-h);
+  }
+}
+
+/* ====== Bottom Tab Bar ====== */
+.tab-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--nav-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 100;
+}
+
+/* Hide bottom tab bar on desktop */
+@media (min-width: 1024px) {
+  .tab-bar { display: none; }
+}
+
+/* ====== Side Nav (desktop) ====== */
+.side-nav {
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--side-w);
+  height: 100vh;
+  padding: var(--sp-6) var(--sp-4);
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  display: none;
+  flex-direction: column;
+  z-index: 90;
+}
+
+.top-bar {
+  position: fixed;
+  top: 0; left: var(--side-w); right: 0;
+  height: var(--top-h);
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  display: none;
+  align-items: center;
+  padding: 0 var(--sp-6);
+  z-index: 85;
+}
+
+@media (min-width: 1024px) {
+  .side-nav { display: flex; }
+  .top-bar { display: flex; }
+}
+
+/* ====== Page container ====== */
+.page-wrap {
+  padding: var(--sp-5) var(--sp-4) var(--sp-6);
+  max-width: 100%;
+  margin: 0 auto;
+}
+@media (min-width: 768px) {
+  .page-wrap { padding: var(--sp-6) var(--sp-5) var(--sp-8); max-width: 720px; }
+}
+@media (min-width: 1024px) {
+  .page-wrap { max-width: 1080px; padding: var(--sp-6) var(--sp-6) var(--sp-8); }
+}
+
+/* ====== Two-column layout (training page on tablet+) ====== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+}
+@media (min-width: 768px) {
+  .two-col {
+    grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr);
+    gap: var(--sp-5);
+  }
+}
+@media (min-width: 1024px) {
+  .two-col { gap: var(--sp-6); }
+}
+
+/* ====== Card grid (records, plans, etc.) ====== */
+.grid-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-3);
+}
+@media (min-width: 480px) {
+  .grid-cards { grid-template-columns: repeat(2, 1fr); gap: var(--sp-4); }
+}
+@media (min-width: 768px) {
+  .grid-cards { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1024px) {
+  .grid-cards { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* ====== Landscape mobile adjust ====== */
+@media (max-width: 900px) and (orientation: landscape) {
+  .page-wrap { padding-top: var(--sp-3); }
+}
+
+/* ====== Print hidden ====== */
+@media print {
+  .tab-bar, .side-nav, .top-bar { display: none !important; }
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+  }
+}
