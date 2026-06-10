@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { authApi } from '@/api/auth';
+import { syncOfflineSessions } from '@/modules/sync';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -41,11 +42,12 @@ function goBack() {
 }
 
 function applyAuth(data) {
-  // 后端返回 { accessToken, refreshToken, user }
-  auth.setAuth(data.accessToken, data.user);
-  if (data.refreshToken) {
-    try { localStorage.setItem('fitcoach_refresh_token', data.refreshToken); } catch (_) { /* ignore */ }
-  }
+  // 后端返回 { accessToken, refreshToken, user } — refreshToken 交给 store 统一管理
+  auth.setAuth(data.accessToken, data.user, data.refreshToken);
+  // 把离线期间攒下的训练记录推上云（后台静默，不阻塞跳转）
+  syncOfflineSessions().then(n => {
+    if (n > 0) app.showToast(`已同步 ${n} 条离线训练记录`, 'success');
+  });
 }
 
 async function submit() {

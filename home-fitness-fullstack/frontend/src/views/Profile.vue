@@ -6,6 +6,7 @@ import { useAppStore } from '@/stores/app';
 import { storage } from '@/modules/storage';
 import { userApi } from '@/api/user';
 import { badgeApi } from '@/api/exercise';
+import { authApi } from '@/api/auth';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -48,6 +49,8 @@ async function loadStats() {
 async function logout() {
   const ok = await app.showConfirm('退出登录', '确定要退出登录吗？');
   if (ok) {
+    // 先撤销服务端 refresh token（失败也不阻塞本地登出）
+    try { await authApi.logout(auth.refreshToken); } catch (_) { /* ignore */ }
     auth.logout();
     app.showToast('已退出', 'success');
     router.push('/login');

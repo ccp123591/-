@@ -45,7 +45,8 @@ public class SessionService {
         s.setDepthScore(intVal(body.get("depthScore"), null));
         s.setSymmetryScore(intVal(body.get("symmetryScore"), null));
         s.setCompletionScore(intVal(body.get("completionScore"), null));
-        s.setSessionDate(str(body.get("sessionDate"), LocalDate.now().toString()));
+        s.setSessionDate(normalizeDate(
+                str(body.get("sessionDate"), str(body.get("date"), null))));
         s.setNotes(str(body.get("notes"), null));
         Session saved = sessionRepo.save(s);
 
@@ -121,6 +122,7 @@ public class SessionService {
     @Transactional
     public int batch(Long userId, List<Map<String, Object>> list) {
         if (list == null || list.isEmpty()) return 0;
+        if (list.size() > 500) throw new BusinessException(400, "单次最多同步 500 条记录");
         int count = 0;
         for (Map<String, Object> body : list) {
             create(userId, body);
@@ -149,6 +151,21 @@ public class SessionService {
     }
 
     /* ---------- helpers ---------- */
+
+    /**
+     * 归一化训练日期为 yyyy-MM-dd（前端离线记录的 date 字段可能带时间），
+     * 解析不了就回退今天 — 月历/连续天数/排行榜都依赖纯日期字符串比较。
+     */
+    private static String normalizeDate(String raw) {
+        if (raw == null || raw.isBlank()) return LocalDate.now().toString();
+        String d = raw.trim();
+        if (d.length() > 10) d = d.substring(0, 10);
+        try {
+            return LocalDate.parse(d).toString();
+        } catch (Exception e) {
+            return LocalDate.now().toString();
+        }
+    }
 
     private static boolean blank(String s) { return s == null || s.isBlank(); }
 

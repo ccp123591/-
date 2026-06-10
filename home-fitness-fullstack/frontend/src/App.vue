@@ -1,8 +1,10 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { useConfigStore } from '@/stores/config';
 import { useAppStore } from '@/stores/app';
+import { useAuthStore } from '@/stores/auth';
+import { syncOfflineSessions } from '@/modules/sync';
 import AppLayout from '@/components/layout/AppLayout.vue';
 import Toast from '@/components/common/Toast.vue';
 import ConfirmModal from '@/components/common/ConfirmModal.vue';
@@ -10,13 +12,27 @@ import ConfirmModal from '@/components/common/ConfirmModal.vue';
 const route = useRoute();
 const config = useConfigStore();
 const app = useAppStore();
+const auth = useAuthStore();
 
 // 登录页无外壳
 const useLayout = computed(() => route.meta?.layout !== 'none');
 
+function trySync() {
+  if (!auth.isLogin) return;
+  syncOfflineSessions().then(n => {
+    if (n > 0) app.showToast(`已同步 ${n} 条离线训练记录`, 'success');
+  });
+}
+
 onMounted(() => {
   config.loadFromLocal();
   config.applyTheme(config.theme);
+  // 已登录启动时 / 断网恢复时，把离线记录推上云
+  trySync();
+  window.addEventListener('online', trySync);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('online', trySync);
 });
 </script>
 
