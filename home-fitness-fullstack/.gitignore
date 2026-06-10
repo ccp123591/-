@@ -15,6 +15,12 @@ backend/target/
 backend/.mvn/wrapper/maven-wrapper.jar
 *.class
 
+# ===== Python（vision-svc）=====
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
 # ===== IDE =====
 .idea/
 .vscode/
