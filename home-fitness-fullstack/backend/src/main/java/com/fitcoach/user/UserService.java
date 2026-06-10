@@ -1,18 +1,16 @@
 package com.fitcoach.user;
 
 import com.fitcoach.exception.BusinessException;
+import com.fitcoach.infra.storage.StorageService;
+import com.fitcoach.infra.storage.UploadValidator;
 import com.fitcoach.session.Session;
 import com.fitcoach.session.SessionRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.*;
@@ -25,9 +23,8 @@ public class UserService {
     private final UserRepository userRepo;
     private final SessionRepository sessionRepo;
     private final UserFollowRepository followRepo;
-
-    @Value("${upload.dir:./uploads}")
-    private String uploadDir;
+    private final UploadValidator uploadValidator;
+    private final StorageService storageService;
 
     public Map<String, Object> profile(Long userId) {
         User u = userRepo.findById(userId)
@@ -56,18 +53,9 @@ public class UserService {
 
     @Transactional
     public String saveAvatar(Long userId, MultipartFile file) throws IOException {
-        if (file == null || file.isEmpty()) throw new BusinessException(400, "文件为空");
-        Path dir = Paths.get(uploadDir, "avatars");
-        Files.createDirectories(dir);
-        String ext = "";
-        String original = file.getOriginalFilename();
-        if (original != null && original.contains(".")) {
-            ext = original.substring(original.lastIndexOf('.'));
-        }
-        String filename = "u" + userId + "-" + System.currentTimeMillis() + ext;
-        Path target = dir.resolve(filename);
-        file.transferTo(target.toFile());
-        String url = "/uploads/avatars/" + filename;
+        // 扩展名白名单 + Tika 真实 MIME 嗅探（防止 .html/.exe 改名上传到公开的 /uploads/**）
+        String ext = uploadValidator.validateImage(file);
+        String url = storageService.save("avatars", userId, file, ext);
         User u = userRepo.findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
         u.setAvatar(url);

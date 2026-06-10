@@ -100,7 +100,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResult<Void>> handleOther(Exception e) {
         log.error("未处理异常", e);
+        // 不把内部异常 message 回显给客户端（可能含 SQL/路径等敏感细节），详情看服务端日志
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResult.fail(500, "服务内部错误: " + e.getMessage()));
+                .body(ApiResult.fail(500, "服务内部错误，请稍后重试"));
     }
 }

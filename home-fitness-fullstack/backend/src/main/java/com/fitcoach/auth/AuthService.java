@@ -80,9 +80,10 @@ public class AuthService {
     /** 注册 */
     @Transactional
     public Map<String, Object> register(String email, String password, String nickname) {
-        if (email == null || password == null || password.length() < 6) {
-            throw new BusinessException(400, "邮箱或密码格式不正确");
+        if (email == null || email.isBlank()) {
+            throw new BusinessException(400, "邮箱不能为空");
         }
+        PasswordPolicy.validate(password);   // ≥8 位且含字母+数字，与找回密码口径一致
         if (userRepo.existsByEmail(email)) throw new BusinessException(400, "该邮箱已注册");
         User u = User.builder()
                 .email(email.trim())

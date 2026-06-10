@@ -36,16 +36,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 if (jwtUtil.isTokenValid(token)) {
                     Claims claims = jwtUtil.parseToken(token);
-                    Long userId = Long.valueOf(claims.getSubject());
-                    String role = claims.get("role", String.class);
-                    if (role == null) role = "USER";
-                    UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                            userId, null,
-                            Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
-                        );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    // 仅接受 access token —— refresh token（30 天有效）不能直接当登录凭证
+                    if ("access".equals(claims.get("type", String.class))) {
+                        Long userId = Long.valueOf(claims.getSubject());
+                        String role = claims.get("role", String.class);
+                        if (role == null) role = "USER";
+                        UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                userId, null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                            );
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
                 }
             } catch (Exception ignored) {
                 // token 无效则继续走匿名流程

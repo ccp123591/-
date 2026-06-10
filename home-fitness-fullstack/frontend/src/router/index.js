@@ -102,7 +102,11 @@ router.beforeEach((to, from, next) => {
   const auth = useAuthStore();
   // 公开页放行
   if (to.meta.public) return next();
-  // 未登录直接进入（游客模式），后续真实落地时可改为 next('/login')
+  // 管理页：仅 ADMIN 可进（未登录去登录页，已登录非管理员回训练页）
+  if (to.meta.admin && !auth.isAdmin) {
+    return next(auth.isLogin ? '/train' : '/login');
+  }
+  // 未登录直接进入（本地游客模式），数据仅存本机；登录后自动同步
   if (!auth.isLogin && to.path !== '/login' && !auth.guestMode) {
     auth.enterGuest();
   }
