@@ -40,7 +40,10 @@ class Voice {
 
   correct(msg) { this.speak(msg, 'high'); }
 
-  finish(reps) { this.speak(`训练结束，共完成 ${reps} 次，辛苦了`, 'high'); }
+  finish(reps, unit = '次') {
+    if (unit === '秒') this.speak(`训练结束，坚持了 ${reps} 秒，辛苦了`, 'high');
+    else this.speak(`训练结束，共完成 ${reps} 次，辛苦了`, 'high');
+  }
 
   stopSpeak() { if (this.synth) this.synth.cancel(); }
 

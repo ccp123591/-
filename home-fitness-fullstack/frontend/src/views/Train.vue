@@ -60,6 +60,21 @@ const ENCOURAGE_INTERVAL = 5;
 const AUTO_PAUSE_FRAMES = 150;
 
 const actionRef = () => train.action;
+const isTimed = computed(() => ACTION_DEFS[train.action]?.kind === 'timed');
+
+/** 本地时区的 yyyy-MM-dd（toISOString 是 UTC，晚上 8 点后会跨天）。 */
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function localDateTimeStr(d = new Date()) {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${localDateStr(d)} ${hh}:${mm}:${ss}`;
+}
 
 /* ========== 姿态结果回调 ========== */
 function onPoseResult(results) {
@@ -83,9 +98,14 @@ function onPoseResult(results) {
   }
 
   if (res.event === 'count') {
-    voice.countVoice(res.reps);
-    if (res.reps % ENCOURAGE_INTERVAL === 0 && res.reps > 0) {
-      setTimeout(() => voice.encourage(), 600);
+    if (isTimed.value) {
+      // 时间型：每 10 秒整点报一次时
+      voice.speak(res.message || `已坚持 ${res.reps} 秒`, 'high');
+    } else {
+      voice.countVoice(res.reps);
+      if (res.reps % ENCOURAGE_INTERVAL === 0 && res.reps > 0) {
+        setTimeout(() => voice.encourage(), 600);
+      }
     }
     if (res.reps >= res.targetReps) {
       stopTraining();
@@ -97,6 +117,11 @@ function onPoseResult(results) {
       voice.correct(res.message);
       lastCorrectionTime = now;
     }
+  }
+  // 时间型每秒到达目标也要停（count 事件只在整 10s 触发）
+  if (isTimed.value && res.reps >= res.targetReps) {
+    stopTraining();
+    return;
   }
 
   if (res.message) train.statusText = res.message;
@@ -170,7 +195,7 @@ async function stopTraining() {
   const actionDef = ACTION_DEFS[train.action];
 
   voice.setEnabled(config.voiceEnabled);
-  voice.finish(result.reps);
+  voice.finish(result.reps, isTimed.value ? '秒' : '次');
 
   train.score = result.score;
   train.rhythmScore = result.rhythmScore;
@@ -179,7 +204,8 @@ async function stopTraining() {
   train.symmetryScore = result.symmetryScore;
 
   const session = {
-    date: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    date: localDateTimeStr(),
+    sessionDate: localDateStr(),
     action: train.action,
     actionLabel: actionDef?.label || train.action,
     reps: result.reps,
@@ -222,7 +248,7 @@ async function stopTraining() {
 async function refreshStats() {
   const sessions = await storage.getAllSessions();
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = localDateStr(now);
   stats.value.today = sessions.filter(s => s.date?.startsWith(todayStr))
     .reduce((sum, s) => sum + (s.reps || 0), 0);
 
@@ -238,7 +264,7 @@ async function refreshStats() {
   const check = new Date(now);
   check.setHours(0, 0, 0, 0);
   for (const d of days) {
-    const ds = check.toISOString().slice(0, 10);
+    const ds = localDateStr(check);
     if (d === ds) { streak++; check.setDate(check.getDate() - 1); }
     else if (d < ds) break;
   }
@@ -325,6 +351,7 @@ onBeforeUnmount(() => {
 
           <HUD
             :reps="train.reps"
+            :reps-label="isTimed ? '秒数' : '次数'"
             :score="train.score || '-'"
             :time="timeStr"
             :angle="train.currentAngle"
@@ -343,7 +370,9 @@ onBeforeUnmount(() => {
         <div class="sec-label">选择动作</div>
         <ActionCard :list="actionList" :selected="train.action" @select="train.action = $event" />
 
-        <TargetStepper v-model="train.targetReps" />
+        <TargetStepper v-model="train.targetReps"
+                       :label="isTimed ? '目标秒数' : '目标次数'"
+                       :max="isTimed ? 600 : 200" />
 
         <div class="btn-row">
           <button v-if="!train.isTraining" class="btn-start" @click="startTraining">

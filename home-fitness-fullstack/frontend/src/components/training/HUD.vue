@@ -1,6 +1,7 @@
 <script setup>
 defineProps({
   reps: [Number, String],
+  repsLabel: { type: String, default: '次数' },
   score: [Number, String],
   time: String,
   angle: [Number, String]
@@ -13,7 +14,7 @@ defineProps({
       <div class="ring ring-cyan">
         <span>{{ reps ?? 0 }}</span>
       </div>
-      <small>次数</small>
+      <small>{{ repsLabel }}</small>
     </div>
     <div class="hud-item">
       <div class="ring ring-purple">

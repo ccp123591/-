@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 
 const CONFIG_KEY = 'fitcoach_config';
 
@@ -9,8 +9,8 @@ const DEFAULT_CONFIG = {
   pushup: { down: 80, up: 160 },
   lunge: { down: 100, up: 170 },
   bridge: { down: 150, up: 175 },
-  plank: { down: 0, up: 0 },          // 时间型
-  jumpingJack: { down: 0, up: 0 },    // 时间型
+  plank: { down: 150, up: 170 },        // 时间型：down = 身体直线角下限（>= 即有效支撑）
+  jumpingJack: { down: 40, up: 140 },   // 手臂外展角：合拢 < down，张开 > up
   bpm: 30,
   ttsRate: 1,
   theme: 'light',
@@ -24,12 +24,21 @@ const DEFAULT_CONFIG = {
   companionName: '小柯'
 };
 
+/** 旧版本把时间型动作阈值存成 0/0（状态机会失效），迁移为新默认值。 */
+function migrate(saved, key) {
+  const v = saved?.[key];
+  if (!v || !v.down || !v.up) return { ...DEFAULT_CONFIG[key] };
+  return { ...DEFAULT_CONFIG[key], ...v };
+}
+
 export const useConfigStore = defineStore('config', () => {
   const squat = ref({ ...DEFAULT_CONFIG.squat });
   const stretch = ref({ ...DEFAULT_CONFIG.stretch });
   const pushup = ref({ ...DEFAULT_CONFIG.pushup });
   const lunge = ref({ ...DEFAULT_CONFIG.lunge });
   const bridge = ref({ ...DEFAULT_CONFIG.bridge });
+  const plank = ref({ ...DEFAULT_CONFIG.plank });
+  const jumpingJack = ref({ ...DEFAULT_CONFIG.jumpingJack });
   const bpm = ref(DEFAULT_CONFIG.bpm);
   const ttsRate = ref(DEFAULT_CONFIG.ttsRate);
   const theme = ref(DEFAULT_CONFIG.theme);
@@ -46,6 +55,7 @@ export const useConfigStore = defineStore('config', () => {
     return {
       squat: squat.value, stretch: stretch.value, pushup: pushup.value,
       lunge: lunge.value, bridge: bridge.value,
+      plank: plank.value, jumpingJack: jumpingJack.value,
       bpm: bpm.value, ttsRate: ttsRate.value, theme: theme.value,
       weeklyGoal: weeklyGoal.value,
       voiceEnabled: voiceEnabled.value,
@@ -62,12 +72,15 @@ export const useConfigStore = defineStore('config', () => {
     try {
       const raw = localStorage.getItem(CONFIG_KEY);
       if (raw) {
-        const data = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+        const saved = JSON.parse(raw);
+        const data = { ...DEFAULT_CONFIG, ...saved };
         squat.value = { ...DEFAULT_CONFIG.squat, ...data.squat };
         stretch.value = { ...DEFAULT_CONFIG.stretch, ...data.stretch };
         pushup.value = { ...DEFAULT_CONFIG.pushup, ...data.pushup };
         lunge.value = { ...DEFAULT_CONFIG.lunge, ...data.lunge };
         bridge.value = { ...DEFAULT_CONFIG.bridge, ...data.bridge };
+        plank.value = migrate(saved, 'plank');
+        jumpingJack.value = migrate(saved, 'jumpingJack');
         bpm.value = data.bpm;
         ttsRate.value = data.ttsRate;
         theme.value = data.theme;
@@ -87,12 +100,19 @@ export const useConfigStore = defineStore('config', () => {
     localStorage.setItem(CONFIG_KEY, JSON.stringify(snapshot()));
   }
 
+  // 开关类设置（训练页直接 v-model 绑 store）变更即持久化，避免离开页面丢配置
+  watch([voiceEnabled, metronomeEnabled, autoPauseEnabled, coachEnabled,
+         companionEnabled, companionAutoSpeak],
+        () => { try { save(); } catch (_) {} });
+
   function reset() {
     Object.assign(squat.value, DEFAULT_CONFIG.squat);
     Object.assign(stretch.value, DEFAULT_CONFIG.stretch);
     Object.assign(pushup.value, DEFAULT_CONFIG.pushup);
     Object.assign(lunge.value, DEFAULT_CONFIG.lunge);
     Object.assign(bridge.value, DEFAULT_CONFIG.bridge);
+    Object.assign(plank.value, DEFAULT_CONFIG.plank);
+    Object.assign(jumpingJack.value, DEFAULT_CONFIG.jumpingJack);
     bpm.value = DEFAULT_CONFIG.bpm;
     ttsRate.value = DEFAULT_CONFIG.ttsRate;
     theme.value = DEFAULT_CONFIG.theme;
@@ -124,7 +144,7 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   return {
-    squat, stretch, pushup, lunge, bridge,
+    squat, stretch, pushup, lunge, bridge, plank, jumpingJack,
     bpm, ttsRate, theme, weeklyGoal,
     voiceEnabled, metronomeEnabled, autoPauseEnabled, coachEnabled,
     companionEnabled, companionAutoSpeak, companionName,

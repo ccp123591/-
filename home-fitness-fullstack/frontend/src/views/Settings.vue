@@ -110,6 +110,34 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
       </div>
     </div>
 
+    <!-- 平板支撑（时间型） -->
+    <div class="card">
+      <div class="card-head">
+        <div class="icon orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 17h18 M5 15l4-7 M19 15l-4-7 M9 8h6"/></svg></div>
+        <h3>平板支撑参数</h3>
+      </div>
+      <div class="item">
+        <div class="lbl-row"><span>身体直线角下限（≥ 即有效支撑）</span><span class="v">{{ config.plank.down }}°</span></div>
+        <input type="range" v-model.number="config.plank.down" min="130" max="170" />
+      </div>
+    </div>
+
+    <!-- 开合跳 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="4" r="2.5"/><path d="M12 7v6 M4 9l8 3 8-3 M7 21l5-8 5 8"/></svg></div>
+        <h3>开合跳参数</h3>
+      </div>
+      <div class="item">
+        <div class="lbl-row"><span>手臂合拢角度阈值</span><span class="v">{{ config.jumpingJack.down }}°</span></div>
+        <input type="range" v-model.number="config.jumpingJack.down" min="20" max="70" />
+      </div>
+      <div class="item">
+        <div class="lbl-row"><span>手臂张开角度阈值</span><span class="v">{{ config.jumpingJack.up }}°</span></div>
+        <input type="range" v-model.number="config.jumpingJack.up" min="110" max="170" />
+      </div>
+    </div>
+
     <!-- 节奏与语音 -->
     <div class="card">
       <div class="card-head">
