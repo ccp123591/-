@@ -32,6 +32,9 @@ RUN mvn -B -q -DskipTests package
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+# docker-compose 健康检查用 wget 探活 —— temurin JRE 基础镜像默认没有，需显式安装
+RUN apt-get update && apt-get install -y --no-install-recommends wget \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/target/*.jar app.jar
 EXPOSE 8080
 ENV JAVA_OPTS="-Dfile.encoding=UTF-8 -Dsun.jnu.encoding=UTF-8"

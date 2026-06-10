@@ -5,5 +5,5 @@ INSERT INTO t_exercise (code, name, description, kind, default_threshold_down, d
 ('pushup',      '俯卧撑',   '强化胸臂力量',       'rep', 80, 160, true, 3),
 ('lunge',       '弓步蹲',   '下肢稳定性训练',     'rep', 100, 170, true, 4),
 ('bridge',      '臀桥',     '臀部激活',           'rep', 150, 175, true, 5),
-('plank',       '平板支撑', '核心力量',           'timed', 0, 0, true, 6),
-('jumpingJack', '开合跳',   '有氧燃脂',           'rep', 0, 0, true, 7);
+('plank',       '平板支撑', '核心力量',           'timed', 150, 170, true, 6),
+('jumpingJack', '开合跳',   '有氧燃脂',           'rep', 40, 140, true, 7);
