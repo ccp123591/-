@@ -154,6 +154,9 @@ public class MimoCoachProvider implements AiCoachProvider {
             sb.append("近 7 次训练：平均分 ").append(ctx.getRecentAvgScore())
               .append("，累计 ").append(total).append(" 次\n");
         }
+        if (ctx.getRoomSummary() != null && !ctx.getRoomSummary().isBlank()) {
+            sb.append("训练环境：").append(ctx.getRoomSummary()).append("\n");
+        }
         if (ctx.getRelevantHistory() != null && !ctx.getRelevantHistory().isBlank()) {
             sb.append("\n—— 相关历史记忆（仅在自然的时候引用，绝不要编造）——\n");
             sb.append(ctx.getRelevantHistory()).append("\n");

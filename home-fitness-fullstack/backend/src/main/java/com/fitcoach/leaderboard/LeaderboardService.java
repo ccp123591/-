@@ -51,7 +51,9 @@ public class LeaderboardService {
             Set<Long> scope = new HashSet<>();
             scope.add(me);
             followRepo.findByFollowerId(me).forEach(f -> scope.add(f.getFollowingId()));
-            return build(LocalDate.now().minusDays(6).toString(), scope);
+            // 直接按好友集合聚合 — 不再受全局 Top100 截断影响
+            return buildRows(sessionRepo.aggregateSinceForUsers(
+                    LocalDate.now().minusDays(6).toString(), scope, PageRequest.of(0, 20)));
         });
     }
 
@@ -91,6 +93,10 @@ public class LeaderboardService {
                 .filter(r -> scopeUserIds == null || scopeUserIds.contains(r.getUserId()))
                 .limit(20)
                 .toList();
+        return buildRows(top);
+    }
+
+    private List<Map<String, Object>> buildRows(List<SessionRepository.SessionAggRow> top) {
         Map<Long, User> users = new HashMap<>();
         userRepo.findAllById(top.stream().map(r -> r.getUserId()).toList())
                 .forEach(u -> users.put(u.getId(), u));

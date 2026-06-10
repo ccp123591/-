@@ -51,6 +51,10 @@ public class CoachContext {
     /** Top-K 历史训练记忆，用于 prompt 中的相关上下文。 */
     private String relevantHistory;
 
+    // —— 训练环境（room module 注入；缺省 null） ——
+    /** 最近一次环境扫描的中文摘要，如"客厅约 8.5㎡，光线良好，右侧 1.2m 有沙发"。 */
+    private String roomSummary;
+
     @Data
     @Builder
     @NoArgsConstructor

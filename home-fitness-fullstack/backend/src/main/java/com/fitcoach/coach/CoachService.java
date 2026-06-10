@@ -10,10 +10,12 @@ import com.fitcoach.infra.ai.ChatTurn;
 import com.fitcoach.infra.ai.CoachAiResponse;
 import com.fitcoach.infra.ai.CoachContext;
 import com.fitcoach.infra.memory.VectorMemoryService;
+import com.fitcoach.room.RoomLayoutService;
 import com.fitcoach.session.Session;
 import com.fitcoach.session.SessionRepository;
 import com.fitcoach.user.UserProfile;
 import com.fitcoach.user.UserProfileRepository;
+import com.fitcoach.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -39,10 +41,13 @@ public class CoachService {
     private final CoachFeedbackRepository fbRepo;
     private final AiCoachProvider provider;
     private final EmotionService emotionService;
+    private final UserRepository userRepo;
     /** 弱依赖：profile 缺失（dev 没建表 / module 未加载）不应导致 coach 失败 */
     private final ObjectProvider<UserProfileRepository> profileRepoProvider;
     /** 弱依赖：向量记忆同样可选 */
     private final ObjectProvider<VectorMemoryService> memoryServiceProvider;
+    /** 弱依赖：环境扫描可选 — 有扫描记录时把空间摘要注入 prompt */
+    private final ObjectProvider<RoomLayoutService> roomServiceProvider;
 
     @Transactional
     public FeedbackResponse feedback(Long userId, Long sessionId) {
@@ -228,6 +233,22 @@ public class CoachService {
                 .recentAvgScore(avgScore)
                 .recentTotalReps(totalReps)
                 .recentSessions(recentDtos);
+
+        // 注入用户昵称（个性化称呼；查询失败不影响主流程）
+        try {
+            userRepo.findById(userId).ifPresent(u -> b.nickname(u.getNickname()));
+        } catch (Exception ignored) {
+        }
+
+        // 注入最近一次环境扫描摘要（弱依赖；没扫描过/异常都跳过）
+        try {
+            RoomLayoutService rs = roomServiceProvider.getIfAvailable();
+            if (rs != null) {
+                String room = rs.latestSummaryForCoach(userId);
+                if (room != null && !room.isBlank()) b.roomSummary(room);
+            }
+        } catch (Exception ignored) {
+        }
 
         // 注入最近 7 天情感（失败/无数据则跳过 — 不影响 coach 主流程）
         try {

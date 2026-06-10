@@ -48,7 +48,7 @@ public class AdminController {
         r.put("users", users);
         r.put("sessions", sessions);
         r.put("todaySessions", todaySessions);
-        r.put("dau", sessionRepo.countBySessionDateGreaterThanEqual(today));
+        r.put("dau", sessionRepo.countDistinctUsersSince(today));
         r.put("pv7d", pv7d);
         return ApiResult.ok(r);
     }
@@ -59,12 +59,10 @@ public class AdminController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword) {
-        Page<User> p = userRepo.findAll(PageRequest.of(Math.max(0, page - 1), size,
+        String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
+        Page<User> p = userRepo.search(kw, PageRequest.of(Math.max(0, page - 1), size,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         List<Map<String, Object>> items = p.getContent().stream()
-                .filter(u -> keyword == null || keyword.isBlank()
-                        || (u.getEmail() != null && u.getEmail().contains(keyword))
-                        || (u.getNickname() != null && u.getNickname().contains(keyword)))
                 .map(this::userMap).collect(Collectors.toList());
         return ApiResult.ok(PageResult.of(items, p.getTotalElements(), page, size));
     }
@@ -102,11 +100,11 @@ public class AdminController {
         Map<String, Long> actionDist = new LinkedHashMap<>();
         sessionRepo.countByAction().forEach(r -> actionDist.put(r.getAction(), r.getCnt()));
 
-        // 近 7 日 / 30 日活跃
+        // 近 7 日 / 30 日活跃（按去重用户数，否则一个高频用户就能把"留存"刷爆表）
         String d7 = LocalDate.now().minusDays(7).toString();
         String d30 = LocalDate.now().minusDays(30).toString();
-        long active7 = sessionRepo.countBySessionDateGreaterThanEqual(d7);
-        long active30 = sessionRepo.countBySessionDateGreaterThanEqual(d30);
+        long active7 = sessionRepo.countDistinctUsersSince(d7);
+        long active30 = sessionRepo.countDistinctUsersSince(d30);
         long totalUsers = Math.max(1, userRepo.count());
 
         // 平均分

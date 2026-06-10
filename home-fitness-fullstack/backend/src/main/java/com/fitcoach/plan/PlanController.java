@@ -35,7 +35,7 @@ public class PlanController {
             @RequestParam(defaultValue = "20") int size) {
         PageRequest pr = PageRequest.of(Math.max(0, page - 1), size,
                 Sort.by(Sort.Direction.DESC, "adoptCount"));
-        Page<Plan> p = planRepo.findAll(pr);
+        Page<Plan> p = planRepo.findByPublishedTrue(pr);
         return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), page, size));
     }
 
@@ -52,10 +52,8 @@ public class PlanController {
             @RequestParam(defaultValue = "20") int size) {
         PageRequest pr = PageRequest.of(Math.max(0, page - 1), size,
                 Sort.by(Sort.Direction.DESC, "adoptCount"));
-        Page<Plan> p = planRepo.findAll(pr);
-        return ApiResult.ok(PageResult.of(
-                p.getContent().stream().filter(pl -> Boolean.FALSE.equals(pl.getOfficial())).toList(),
-                p.getTotalElements(), page, size));
+        Page<Plan> p = planRepo.findByOfficialFalseAndPublishedTrue(pr);
+        return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), page, size));
     }
 
     @Operation(summary = "计划详情")
@@ -142,8 +140,18 @@ public class PlanController {
     public ApiResult<Void> adopt(@PathVariable Long id) {
         Long uid = SecurityUtil.currentUserId();
         Plan plan = planRepo.findById(id).orElseThrow(() -> new BusinessException(404, "计划不存在"));
-        if (userPlanRepo.findByUserIdAndPlanId(uid, id).isPresent()) {
-            return ApiResult.ok(null, "已在进行中");
+        var existing = userPlanRepo.findByUserIdAndPlanId(uid, id);
+        if (existing.isPresent()) {
+            UserPlan up = existing.get();
+            if ("ACTIVE".equals(up.getStatus())) {
+                return ApiResult.ok(null, "已在进行中");
+            }
+            // 之前放弃过 → 重新激活并从头开始
+            up.setStatus("ACTIVE");
+            up.setProgressDay(0);
+            up.setUpdatedAt(LocalDateTime.now());
+            userPlanRepo.save(up);
+            return ApiResult.ok(null, "已重新开始该计划");
         }
         UserPlan up = new UserPlan();
         up.setUserId(uid);

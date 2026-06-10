@@ -42,7 +42,22 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
         """)
     List<SessionAggRow> aggregateSince(@Param("startDate") String startDate, Pageable pageable);
 
+    // 限定用户集合的时间窗口聚合（好友榜 — 不受全局 TopN 截断影响）
+    @Query("""
+        select s.userId as userId, sum(s.reps) as totalReps, avg(coalesce(s.score,0)) as avgScore
+        from Session s
+        where s.sessionDate >= :startDate and s.userId in :uids
+        group by s.userId
+        order by totalReps desc
+        """)
+    List<SessionAggRow> aggregateSinceForUsers(@Param("startDate") String startDate,
+                                               @Param("uids") java.util.Collection<Long> uids,
+                                               Pageable pageable);
+
     long countBySessionDateGreaterThanEqual(String dateStr);
+
+    @Query("select count(distinct s.userId) from Session s where s.sessionDate >= :d")
+    long countDistinctUsersSince(@Param("d") String dateStr);
 
     @Query("""
         select s.action as action, count(s) as cnt
