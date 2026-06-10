@@ -34,6 +34,13 @@
   --text-2: rgba(250, 249, 245, .68);
   --text-3: rgba(250, 249, 245, .4);
 
+  /* Alias tokens（Challenges/Emotion/Room 等页面使用的语义名，
+     用 var() 间接引用 → 跟随各主题自动切换） */
+  --text-strong: var(--text);
+  --text-soft:   var(--text-2);
+  --bg-elev:     var(--bg-elevated);
+  --bg-input:    var(--bg-card-2);
+
   /* Layout */
   --radius-lg:  20px;
   --radius:     16px;

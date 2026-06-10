@@ -13,7 +13,7 @@
         <div class="body">
           <p class="desc">{{ c.description }}</p>
           <div class="meta">
-            <span>目标 {{ c.targetReps }} {{ c.action }}</span>
+            <span>目标 {{ c.targetReps }} {{ c.action === 'plank' ? '秒' : '次' }}{{ zhAction(c.action) }}</span>
             <span>{{ c.participantCount || 0 }} 人参与</span>
             <span>截止 {{ c.endDate }}</span>
           </div>
@@ -63,6 +63,9 @@ const rank = ref([]);
 const joining = ref(false);
 
 const pct = (a, b) => Math.min(100, Math.round((a || 0) / Math.max(1, b) * 100));
+
+const zhAction = a => ({ squat:'深蹲', pushup:'俯卧撑', plank:'平板支撑', stretch:'前屈伸展',
+                         lunge:'弓步蹲', bridge:'臀桥', jumpingJack:'开合跳' }[a] || a || '');
 
 async function loadList() {
   list.value = await challengeApi.list();

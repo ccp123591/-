@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { adminApi } from '@/api/exercise';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
@@ -7,13 +7,28 @@ import { useAppStore } from '@/stores/app';
 const auth = useAuthStore();
 const app = useAppStore();
 
-const dashboardData = ref({ users: 0, sessions: 0, todaySessions: 0, dau: 0 });
+const dashboardData = ref({ users: 0, sessions: 0, todaySessions: 0, dau: 0, pv7d: [] });
+const analytics = ref(null);
 const users = ref([]);
 const keyword = ref('');
 const loading = ref(false);
 
+const ACTION_ZH = { squat:'深蹲', pushup:'俯卧撑', plank:'平板支撑', stretch:'前屈伸展',
+                    lunge:'弓步蹲', bridge:'臀桥', jumpingJack:'开合跳' };
+const actionDist = computed(() => {
+  const dist = analytics.value?.actionDistribution || {};
+  const entries = Object.entries(dist);
+  const max = Math.max(1, ...entries.map(([, v]) => v));
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => ({ code: k, label: ACTION_ZH[k] || k, count: v, pct: Math.round(v / max * 100) }));
+});
+
 async function loadDashboard() {
   dashboardData.value = (await adminApi.dashboard()) || dashboardData.value;
+}
+async function loadAnalytics() {
+  try { analytics.value = await adminApi.analytics(); } catch (_) { /* 拦截器已提示 */ }
 }
 async function loadUsers() {
   const res = await adminApi.users({ page: 1, size: 20, keyword: keyword.value || undefined });
@@ -29,7 +44,7 @@ async function toggleBan(u) {
 onMounted(async () => {
   if (!auth.isAdmin) return;
   loading.value = true;
-  try { await loadDashboard(); await loadUsers(); } finally { loading.value = false; }
+  try { await Promise.all([loadDashboard(), loadAnalytics(), loadUsers()]); } finally { loading.value = false; }
 });
 </script>
 
@@ -57,6 +72,36 @@ onMounted(async () => {
         <div class="dash-card">
           <div class="dc-v">{{ dashboardData.dau }}</div>
           <div class="dc-l">今日 DAU</div>
+        </div>
+      </div>
+
+      <!-- 数据分析 -->
+      <div v-if="analytics" class="analytics">
+        <div class="ana-card">
+          <h4>动作分布</h4>
+          <div v-if="actionDist.length" class="dist-list">
+            <div v-for="d in actionDist" :key="d.code" class="dist-row">
+              <span class="d-label">{{ d.label }}</span>
+              <div class="d-bar"><div class="d-fill" :style="{ width: d.pct + '%' }"></div></div>
+              <span class="d-count">{{ d.count }}</span>
+            </div>
+          </div>
+          <div v-else class="empty">暂无训练数据</div>
+        </div>
+        <div class="ana-card">
+          <h4>活跃与质量</h4>
+          <div class="kv-grid">
+            <div class="kv"><span>7 日活跃率</span><b>{{ Math.round((analytics.retention7d || 0) * 100) }}%</b></div>
+            <div class="kv"><span>30 日活跃率</span><b>{{ Math.round((analytics.retention30d || 0) * 100) }}%</b></div>
+            <div class="kv"><span>近期平均分</span><b>{{ analytics.avgScore ?? '-' }}</b></div>
+          </div>
+          <h4 class="trend-title">近 7 日训练量</h4>
+          <div class="trend">
+            <div v-for="(v, i) in (dashboardData.pv7d || [])" :key="i" class="t-col">
+              <div class="t-bar" :style="{ height: Math.max(4, v / Math.max(1, ...(dashboardData.pv7d || [1])) * 60) + 'px' }"></div>
+              <small>{{ v }}</small>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -126,6 +171,36 @@ onMounted(async () => {
   background-clip: text;
 }
 .dc-l { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+.analytics {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+@media (min-width: 768px) { .analytics { grid-template-columns: 1fr 1fr; } }
+.ana-card {
+  padding: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.ana-card h4 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.dist-list { display: flex; flex-direction: column; gap: 8px; }
+.dist-row { display: flex; align-items: center; gap: 8px; }
+.d-label { width: 64px; font-size: 12px; color: var(--text-2); flex-shrink: 0; }
+.d-bar { flex: 1; height: 8px; background: var(--bg-card-2); border-radius: 100px; overflow: hidden; }
+.d-fill { height: 100%; background: var(--grad-primary); border-radius: 100px; }
+.d-count { width: 36px; text-align: right; font-size: 12px; font-weight: 700; color: var(--cyan); }
+.kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.kv-grid .kv { background: var(--bg-card-2); border-radius: 10px; padding: 10px; text-align: center; }
+.kv-grid .kv span { display: block; font-size: 10px; color: var(--text-3); }
+.kv-grid .kv b { font-size: 16px; color: var(--cyan); }
+.trend-title { margin-top: 4px; }
+.trend { display: flex; align-items: flex-end; gap: 8px; height: 80px; padding-top: 4px; }
+.t-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }
+.t-bar { width: 100%; max-width: 28px; background: var(--grad-primary); border-radius: 6px 6px 2px 2px; }
+.t-col small { font-size: 10px; color: var(--text-3); }
 
 .quick-grid {
   display: grid;

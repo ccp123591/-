@@ -69,11 +69,14 @@ async function exportCsv() {
 }
 
 async function clearAll() {
-  const ok = await app.showConfirm('清空记录', '确定清空所有本地训练记录？此操作不可撤销');
+  const msg = auth.isLogin
+    ? '仅清空本机离线缓存，云端已同步的记录会保留并继续显示。确定继续？'
+    : '确定清空所有本地训练记录？此操作不可撤销';
+  const ok = await app.showConfirm('清空本地记录', msg);
   if (ok) {
     await storage.clearSessions();
     await load();
-    app.showToast('记录已清空', 'success');
+    app.showToast(auth.isLogin ? '本地缓存已清空（云端记录保留）' : '记录已清空', 'success');
   }
 }
 

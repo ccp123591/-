@@ -1,7 +1,7 @@
 /* FitCoach Service Worker v3.0
  * Offline-first with network fallback, CDN cache for MediaPipe
  */
-const VERSION = 'fitcoach-v3-0-1';
+const VERSION = 'fitcoach-v3-0-2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -54,6 +54,22 @@ self.addEventListener('fetch', e => {
         }).catch(() => cached);
         return cached || fetchPromise;
       })
+    );
+    return;
+  }
+
+  // 页面导航：网络优先（保证发新版后能立刻拿到新 index.html），离线回退缓存
+  if (req.mode === 'navigate') {
+    e.respondWith(
+      fetch(req).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(VERSION).then(c => c.put(req, clone));
+        }
+        return res;
+      }).catch(() =>
+        caches.match(req).then(cached => cached || caches.match('/index.html'))
+      )
     );
     return;
   }
