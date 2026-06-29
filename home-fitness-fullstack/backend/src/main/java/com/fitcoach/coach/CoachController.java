@@ -35,7 +35,7 @@ public class CoachController {
     @PostMapping("/feedback")
     public ApiResult<FeedbackResponse> feedback(@Valid @RequestBody FeedbackRequest req) {
         Long userId = SecurityUtil.currentUserId();
-        return ApiResult.ok(coachService.feedback(userId, req.getSessionId()));
+        return ApiResult.ok(coachService.feedback(userId, req.getSessionId(), req.getFormReview()));
     }
 
     @Operation(summary = "获取综合训练建议（基于近 7 次）")
@@ -90,6 +90,10 @@ public class CoachController {
     public static class FeedbackRequest {
         @NotNull
         private Long sessionId;
+
+        /** 本次动作视觉点评摘要（JoyAI-VL，可空）；前端在视觉点评就绪后带上。 */
+        @Size(max = 500, message = "formReview 最长 500 字")
+        private String formReview;
     }
 
     @Data

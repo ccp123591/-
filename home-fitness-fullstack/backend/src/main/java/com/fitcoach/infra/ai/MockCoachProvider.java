@@ -47,6 +47,12 @@ public class MockCoachProvider implements AiCoachProvider {
             review = String.format("本次 %s %d 次，得分 %d，动作偏粗糙，建议放慢节奏、关注关键角度。", label, reps, score);
         }
 
+        // 融合视觉点评（JoyAI-VL）— 把"看到的"接到"数据算到的"后面
+        String formReview = ctx.getFormReview();
+        if (formReview != null && !formReview.isBlank()) {
+            review = review + " 画面观察：" + formReview.strip() + "。";
+        }
+
         String suggestion;
         if (score >= 80) {
             suggestion = String.format("可适当加大幅度或提高频率，下次目标 %d 次。", reps + 3);

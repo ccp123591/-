@@ -101,7 +101,9 @@ function close() {
           </div>
         </div>
 
-        <CoachFeedback :session="session" />
+        <CoachFeedback :session="session"
+                       :form-critique="formCritique"
+                       :form-critique-loading="formCritiqueLoading" />
 
         <!-- 动作视觉点评（JoyAI-VL）-->
         <div v-if="formCritiqueLoading || formCritique" class="form-critique">

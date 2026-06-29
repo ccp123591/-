@@ -55,6 +55,15 @@ public class CoachService {
 
     @Transactional
     public FeedbackResponse feedback(Long userId, Long sessionId) {
+        return feedback(userId, sessionId, null);
+    }
+
+    /**
+     * 训练后反馈。formReview 为本次动作的视觉点评摘要（JoyAI-VL，可空）——
+     * 注入上下文后，AI 把"看到的"和"数据算到的"结合成一段反馈。
+     */
+    @Transactional
+    public FeedbackResponse feedback(Long userId, Long sessionId, String formReview) {
         Session s = sessionRepo.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(404, "训练记录不存在"));
         if (!s.getUserId().equals(userId)) {
@@ -62,6 +71,9 @@ public class CoachService {
         }
 
         CoachContext ctx = buildContext(userId, s);
+        if (formReview != null && !formReview.isBlank()) {
+            ctx.setFormReview(formReview.strip());
+        }
         CoachAiResponse ai = provider.feedback(ctx);
 
         CoachFeedback saved = persist(userId, sessionId, ai);

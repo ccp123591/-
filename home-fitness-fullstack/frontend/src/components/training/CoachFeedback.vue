@@ -4,8 +4,29 @@ import { coachApi } from '@/api/coach';
 import { ttsApi, playTtsResult } from '@/api/tts';
 import { useConfigStore } from '@/stores/config';
 
-const props = defineProps({ session: Object });
+const props = defineProps({
+  session: Object,
+  formCritique: { type: Object, default: null },
+  formCritiqueLoading: { type: Boolean, default: false }
+});
 const config = useConfigStore();
+
+const FEEDBACK_WAIT_MS = 6000;  // 最多等视觉点评 6s，超时则先出数据版复盘
+let feedbackTimer = null;
+
+/** 把视觉点评压成一行摘要注入文字 coach；仅真视觉点评（joyai-vl）才注入。 */
+function buildFormReview() {
+  const fc = props.formCritique;
+  if (!fc || fc.model !== 'joyai-vl') return null;
+  const parts = [];
+  if (fc.summary) parts.push(fc.summary);
+  (fc.issues || []).slice(0, 3).forEach(it => {
+    parts.push(`${it.joint ? it.joint + '：' : ''}${it.detail}`);
+  });
+  if (fc.formScore != null) parts.push(`动作标准度 ${fc.formScore}`);
+  const s = parts.join('；');
+  return s ? s.slice(0, 500) : null;
+}
 
 const TABS = [
   { key: 'feedback',   label: '本次复盘', hint: '针对刚刚那组动作' },
@@ -67,7 +88,7 @@ async function load(key, force = false) {
   try {
     let data;
     if (key === 'feedback') {
-      data = await coachApi.feedback(props.session.remoteId || props.session.localId);
+      data = await coachApi.feedback(props.session.remoteId || props.session.localId, buildFormReview());
     } else if (key === 'suggestion') {
       data = await coachApi.suggestion();
     } else {
@@ -141,12 +162,31 @@ function localFallback(s) {
   };
 }
 
+/**
+ * 出"本次复盘"前先等视觉点评就绪（这样反馈能融合"看到的"+"算到的"）。
+ * - force=true 或视觉点评已结束（成功/失败/未启用）才真正发起；
+ * - 已加载过则不重复；超时兜底见 FEEDBACK_WAIT_MS。
+ */
+function maybeLoadFeedback(force = false) {
+  if (!props.session || cache.value.feedback) return;
+  if (!force && props.formCritiqueLoading) return;  // 还在等视觉点评
+  if (feedbackTimer) { clearTimeout(feedbackTimer); feedbackTimer = null; }
+  load('feedback');
+}
+
 watch(() => props.session, (v) => {
   if (!v) return;
   tab.value = 'feedback';
   cache.value = { feedback: null, suggestion: null, weekly: null };
-  load('feedback');
+  if (feedbackTimer) clearTimeout(feedbackTimer);
+  feedbackTimer = setTimeout(() => maybeLoadFeedback(true), FEEDBACK_WAIT_MS);
+  maybeLoadFeedback();
 }, { immediate: true });
+
+// 视觉点评结束（loading 翻 false）后立即出复盘，把点评摘要带上
+watch(() => props.formCritiqueLoading, (loading) => {
+  if (!loading) maybeLoadFeedback();
+});
 
 watch(current, (v) => {
   if (!v) { reveal.value = ''; return; }
@@ -156,6 +196,7 @@ watch(current, (v) => {
 
 onBeforeUnmount(() => {
   if (revealTimer) clearInterval(revealTimer);
+  if (feedbackTimer) clearTimeout(feedbackTimer);
 });
 </script>
 

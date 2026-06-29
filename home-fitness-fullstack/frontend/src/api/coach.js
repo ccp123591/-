@@ -4,7 +4,9 @@ import client from './client';
  * AI 教练：基于训练数据生成个性化反馈，以及陪伴聊天 + 记忆唤起。
  */
 export const coachApi = {
-  feedback:   (sessionId) => client.post(`/coach/feedback`, { sessionId }),
+  /** 训练后反馈；formReview 为本次动作的视觉点评摘要（JoyAI-VL，可空）。 */
+  feedback:   (sessionId, formReview = null) =>
+    client.post('/coach/feedback', formReview ? { sessionId, formReview } : { sessionId }),
   suggestion: ()          => client.get('/coach/suggestion'),
   weeklyPlan: ()          => client.get('/coach/weekly-plan'),
   history:    (params)    => client.get('/coach/history', { params }),
