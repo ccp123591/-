@@ -1,13 +1,23 @@
-"""起步版推理：用图片字节的 hash 衍生稳定的伪随机特征，确保 e2e 链路通。
+"""房间环境推理入口。
 
-后续会话可替换为真实 MiDaS-small（深度）+ U2Net（前景）推理，schema 不变。
+analyze_frames 是调度器：
+- 配置了 JoyAI-VL 端点（JOYAI_VL_BASE_URL）时，优先走真实 VL 推理；失败则回落占位实现。
+- 未配置端点时，直接走占位实现（图片字节 hash 衍生稳定伪随机特征），保证 e2e 链路通。
+
+两条路径共用 rules 的动作/安全规则，输出口径一致。
 """
 from __future__ import annotations
 
 import hashlib
+import logging
 from typing import List
 
-from .schema import DiscouragedAction, Obstacle, RoomFeatures
+from .config import JoyaiConfig, load_joyai_config
+from .joyai_vl import JoyaiError, analyze_frames_joyai
+from .rules import action_rules, safety_score
+from .schema import Obstacle, RoomFeatures
+
+logger = logging.getLogger("vision-svc")
 
 _ROOM_TYPES = ["living-room", "bedroom", "office", "unknown"]
 _LIGHTING = ["good", "good", "dim", "poor"]
@@ -15,8 +25,22 @@ _FLOOR = ["hardwood", "carpet", "tile", "unknown"]
 _OBSTACLES = ["sofa", "chair", "table", "bed", "tv", "wall"]
 _SIDES = ["left", "right", "front", "behind"]
 
-# 推荐 / 不适合动作（根据面积估算分档）
-_ALL_ACTIONS = ["squat", "stretch", "bridge", "plank", "pushup", "lunge", "jumpingJack"]
+# 进程级缓存一次配置（环境变量在启动后不变）
+_CONFIG: JoyaiConfig = load_joyai_config()
+
+
+def analyze_frames(payloads: List[bytes]) -> RoomFeatures:
+    """根据配置选择 JoyAI-VL 或占位推理；JoyAI-VL 失败时优雅回落。"""
+    if not payloads:
+        return RoomFeatures()
+
+    if _CONFIG.enabled:
+        try:
+            return analyze_frames_joyai(payloads, _CONFIG)
+        except JoyaiError as e:
+            logger.warning("joyai-vl 推理失败，回落占位实现: %s", e)
+
+    return _analyze_placeholder(payloads)
 
 
 def _hash_seq(payloads: List[bytes]) -> bytes:
@@ -26,11 +50,8 @@ def _hash_seq(payloads: List[bytes]) -> bytes:
     return h.digest()
 
 
-def analyze_frames(payloads: List[bytes]) -> RoomFeatures:
-    """占位推理 — 后续替换为真实模型。"""
-    if not payloads:
-        return RoomFeatures()
-
+def _analyze_placeholder(payloads: List[bytes]) -> RoomFeatures:
+    """占位推理 — 用图片字节 hash 衍生稳定的伪随机特征。"""
     digest = _hash_seq(payloads)
     seed = int.from_bytes(digest[:4], "big")
 
@@ -54,10 +75,8 @@ def analyze_frames(payloads: List[bytes]) -> RoomFeatures:
         bbox = [x1, 200, x1 + 320, 520]
         obstacles.append(Obstacle(label=label, bbox=bbox, distanceM=distance, side=side))
 
-    # 推荐 / 不适合 动作 — 按面积分档（与真实 MiDaS 推理上线后保持同样规则）
-    recommended, discouraged, warnings = _action_rules(area, lighting, obstacles)
-
-    safety_score = _safety(area, lighting, obstacles)
+    recommended, discouraged, warnings = action_rules(area, lighting, obstacles)
+    score = safety_score(area, lighting, obstacles)
 
     return RoomFeatures(
         areaSqm=round(area, 2),
@@ -68,56 +87,7 @@ def analyze_frames(payloads: List[bytes]) -> RoomFeatures:
         obstacles=obstacles,
         recommendedActions=recommended,
         discouragedActions=discouraged,
-        safetyScore=safety_score,
+        safetyScore=score,
         warnings=warnings,
         model="placeholder-v0",
     )
-
-
-def _action_rules(area: float, lighting: str, obstacles: List[Obstacle]):
-    """根据面积 / 光线 / 障碍物推导可行动作清单（也用于真实推理 -- 把规则抽出来）。"""
-    static_actions = ["stretch", "plank", "bridge"]  # 几乎所有房间都行
-    recommended = list(static_actions)
-    discouraged: List[DiscouragedAction] = []
-    warnings: List[str] = []
-
-    if area >= 5.0:
-        recommended += ["squat", "pushup"]
-    if area >= 7.0:
-        recommended += ["lunge"]
-    if area >= 10.0:
-        recommended.append("jumpingJack")
-    else:
-        discouraged.append(DiscouragedAction(action="jumpingJack",
-                                             reason=f"可用面积约 {area:.1f}㎡，跳跃动作不安全"))
-
-    near_obstacle = any(o.distanceM is not None and o.distanceM < 1.0 for o in obstacles)
-    if near_obstacle:
-        if "lunge" in recommended:
-            recommended.remove("lunge")
-        discouraged.append(DiscouragedAction(action="lunge", reason="周围障碍物过近，弓步蹲不安全"))
-        warnings.append("障碍物距离 < 1m，请清理周边再训练")
-
-    if lighting == "poor":
-        warnings.append("光线很差，姿态识别可能不稳定，建议增加照明")
-
-    # 去重保序
-    seen = set()
-    dedup_recommended = []
-    for a in recommended:
-        if a not in seen:
-            seen.add(a)
-            dedup_recommended.append(a)
-
-    return dedup_recommended, discouraged, warnings
-
-
-def _safety(area: float, lighting: str, obstacles: List[Obstacle]) -> int:
-    score = 100
-    if area < 4: score -= 20
-    elif area < 6: score -= 10
-    if lighting == "dim": score -= 5
-    elif lighting == "poor": score -= 15
-    near = sum(1 for o in obstacles if o.distanceM is not None and o.distanceM < 1.0)
-    score -= near * 10
-    return max(0, min(100, score))

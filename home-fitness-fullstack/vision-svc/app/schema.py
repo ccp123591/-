@@ -30,3 +30,22 @@ class RoomFeatures(BaseModel):
     safetyScore: Optional[int] = None
     warnings: List[str] = []
     model: str = "placeholder-v0"
+
+
+class FormIssue(BaseModel):
+    """单条动作问题。joint: 涉及部位（knee/back/hip…）；severity: minor|major。"""
+
+    joint: Optional[str] = None
+    severity: str = "minor"
+    detail: str
+
+
+class FormCritique(BaseModel):
+    """动作视觉点评 — JoyAI-VL 看训练关键帧给出的自然语言反馈。"""
+
+    action: str
+    summary: str = ""
+    issues: List[FormIssue] = []
+    tips: List[str] = []
+    formScore: Optional[int] = None
+    model: str = "placeholder-v0"
