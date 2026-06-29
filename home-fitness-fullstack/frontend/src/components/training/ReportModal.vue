@@ -7,8 +7,13 @@ import CoachFeedback from './CoachFeedback.vue';
 
 const props = defineProps({
   show: Boolean,
-  session: Object
+  session: Object,
+  formCritique: { type: Object, default: null },
+  formCritiqueLoading: { type: Boolean, default: false }
 });
+
+// model 非 joyai-vl 说明视觉模型未接入，仅通用兜底
+const critiqueIsReal = computed(() => props.formCritique?.model === 'joyai-vl');
 const emit = defineEmits(['close', 'retry']);
 const auth = useAuthStore();
 const rest = ref(null);
@@ -97,6 +102,32 @@ function close() {
         </div>
 
         <CoachFeedback :session="session" />
+
+        <!-- 动作视觉点评（JoyAI-VL）-->
+        <div v-if="formCritiqueLoading || formCritique" class="form-critique">
+          <div class="fc-head">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 3a7 7 0 0 1 7 7c0 4-7 8-7 8s-7-4-7-8a7 7 0 0 1 7-7z"/><circle cx="10" cy="10" r="2.2"/>
+            </svg>
+            <span>AI 动作点评</span>
+            <span v-if="critiqueIsReal && formCritique?.formScore != null" class="fc-score">{{ formCritique.formScore }}</span>
+          </div>
+
+          <div v-if="formCritiqueLoading" class="fc-loading">AI 正在看你的动作…</div>
+
+          <template v-else-if="formCritique">
+            <p class="fc-summary">{{ formCritique.summary }}</p>
+            <ul v-if="formCritique.issues?.length" class="fc-issues">
+              <li v-for="(it, i) in formCritique.issues" :key="'i' + i" :class="['fc-issue', it.severity]">
+                <span v-if="it.joint" class="fc-joint">{{ it.joint }}</span>{{ it.detail }}
+              </li>
+            </ul>
+            <ul v-if="formCritique.tips?.length" class="fc-tips">
+              <li v-for="(t, i) in formCritique.tips" :key="'t' + i">{{ t }}</li>
+            </ul>
+            <div v-if="!critiqueIsReal" class="fc-note">未接入视觉模型，以上为通用要点</div>
+          </template>
+        </div>
 
         <div class="btn-row">
           <button class="btn primary" @click="close">完成</button>
@@ -196,6 +227,54 @@ function close() {
 .btn:active { transform: scale(.96); }
 .primary { background: var(--grad-primary); color: #fff; }
 .secondary { background: var(--bg-card-2); color: var(--text-2); }
+
+.form-critique {
+  margin-top: 14px;
+  padding: 14px;
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.fc-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 8px;
+}
+.fc-head svg { width: 16px; height: 16px; color: var(--cyan); }
+.fc-score {
+  margin-left: auto;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--cyan);
+}
+.fc-loading { font-size: 12px; color: var(--text-3); padding: 4px 0; }
+.fc-summary { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.fc-issues { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.fc-issue {
+  font-size: 12px;
+  color: var(--text-2);
+  padding-left: 10px;
+  border-left: 2px solid var(--text-3);
+  line-height: 1.45;
+}
+.fc-issue.major { border-left-color: var(--red); }
+.fc-issue.minor { border-left-color: var(--orange); }
+.fc-joint {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.fc-tips { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.fc-tips li { font-size: 12px; color: var(--text-2); line-height: 1.45; }
+.fc-note { margin-top: 8px; font-size: 11px; color: var(--text-3); }
 
 .fade-enter-active, .fade-leave-active { transition: opacity .3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

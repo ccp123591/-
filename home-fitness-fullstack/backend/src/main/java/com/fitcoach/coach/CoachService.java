@@ -10,6 +10,8 @@ import com.fitcoach.infra.ai.ChatTurn;
 import com.fitcoach.infra.ai.CoachAiResponse;
 import com.fitcoach.infra.ai.CoachContext;
 import com.fitcoach.infra.memory.VectorMemoryService;
+import com.fitcoach.infra.vision.FormCritique;
+import com.fitcoach.infra.vision.VisionClient;
 import com.fitcoach.room.RoomLayoutService;
 import com.fitcoach.session.Session;
 import com.fitcoach.session.SessionRepository;
@@ -23,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,6 +45,7 @@ public class CoachService {
     private final AiCoachProvider provider;
     private final EmotionService emotionService;
     private final UserRepository userRepo;
+    private final VisionClient visionClient;
     /** 弱依赖：profile 缺失（dev 没建表 / module 未加载）不应导致 coach 失败 */
     private final ObjectProvider<UserProfileRepository> profileRepoProvider;
     /** 弱依赖：向量记忆同样可选 */
@@ -78,6 +82,18 @@ public class CoachService {
         CoachAiResponse ai = provider.weeklyPlan(ctx);
         CoachFeedback saved = persist(userId, null, ai);
         return toResponse(saved, ai);
+    }
+
+    /**
+     * 动作视觉点评 — 把训练关键帧交给 vision-svc(JoyAI-VL) 给自然语言反馈。
+     * 即时反馈，不落库；vision-svc 端点未启用时返回通用兜底（model=placeholder-v0）。
+     */
+    public FormCritique formCritique(Long userId, String action, Integer reps, Integer score,
+                                     List<MultipartFile> frames) {
+        FormCritique fc = visionClient.critique(action, reps, score, frames);
+        log.info("[coach] form-critique user={} action={} model={} score={}",
+                userId, action, fc == null ? null : fc.getModel(), fc == null ? null : fc.getFormScore());
+        return fc;
     }
 
     @Transactional(readOnly = true)

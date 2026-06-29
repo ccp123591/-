@@ -18,5 +18,25 @@ export const coachApi = {
   chat: (message, history = []) => client.post('/coach/chat', { message, history }),
 
   /** 叙旧 — 按时间近的最近聊天记忆做老朋友式回顾 */
-  reminisce: () => client.post('/coach/reminisce')
+  reminisce: () => client.post('/coach/reminisce'),
+
+  /**
+   * 动作视觉点评 — 上传 1-3 帧训练画面，JoyAI-VL 给动作反馈。
+   * @param {string} action 动作 code（squat/pushup…）
+   * @param {number|null} reps 本组次数/秒数
+   * @param {number|null} score 本组综合分
+   * @param {File[]} files 1-3 帧 jpg
+   * @returns {{action, summary, issues[], tips[], formScore, model}}
+   */
+  formCritique: (action, reps, score, files) => {
+    const fd = new FormData();
+    fd.append('action', action);
+    if (reps != null) fd.append('reps', reps);
+    if (score != null) fd.append('score', score);
+    files.forEach(f => fd.append('frames', f));
+    return client.post('/coach/form-critique', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 45000  // VLM 推理可能稍慢
+    });
+  }
 };

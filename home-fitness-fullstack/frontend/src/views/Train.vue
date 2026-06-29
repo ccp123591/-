@@ -10,6 +10,7 @@ import { voice } from '@/modules/voice';
 import { storage } from '@/modules/storage';
 import { sessionApi } from '@/api/session';
 import { badgeApi } from '@/api/exercise';
+import { coachApi } from '@/api/coach';
 
 import HUD from '@/components/training/HUD.vue';
 import ActionCard from '@/components/training/ActionCard.vue';
@@ -52,6 +53,14 @@ const lastSession = ref(null);
 const stats = ref({ today: 0, week: 0, streak: 0 });
 const lostPoseCount = ref(0);
 
+// 动作视觉点评（JoyAI-VL）— 训练中抓 2-3 帧，结束后调后端
+const formCritique = ref(null);
+const formCritiqueLoading = ref(false);
+const frameBuffer = [];            // 最近若干帧 Blob（保留 3 张）
+let captureCanvas = null;
+let lastCaptureTs = 0;
+const CAPTURE_MIN_GAP = 800;       // 抓帧限频，避免每帧都截
+
 let timerInterval = null;
 let startTime = 0;
 let lastCorrectionTime = 0;
@@ -76,11 +85,34 @@ function localDateTimeStr(d = new Date()) {
   return `${localDateStr(d)} ${hh}:${mm}:${ss}`;
 }
 
+/* ========== 关键帧抓取（喂给 JoyAI-VL 视觉点评）========== */
+function captureFrame() {
+  const v = videoEl.value;
+  if (!v || !v.videoWidth) return;
+  const now = Date.now();
+  if (now - lastCaptureTs < CAPTURE_MIN_GAP) return;  // 限频
+  lastCaptureTs = now;
+  if (!captureCanvas) captureCanvas = document.createElement('canvas');
+  const w = 480;
+  const h = Math.round(w * (v.videoHeight / v.videoWidth)) || 360;
+  captureCanvas.width = w;
+  captureCanvas.height = h;
+  captureCanvas.getContext('2d').drawImage(v, 0, 0, w, h);
+  captureCanvas.toBlob(blob => {
+    if (!blob) return;
+    frameBuffer.push(blob);
+    if (frameBuffer.length > 3) frameBuffer.shift();  // 只留最近 3 张
+  }, 'image/jpeg', 0.8);
+}
+
 /* ========== 姿态结果回调 ========== */
 function onPoseResult(results) {
   if (!train.isTraining || train.isPaused) return;
   const landmarks = results.poseLandmarks;
   const res = exercise.update(landmarks);
+
+  // 在动作最低点 / 每次计数时抓帧 —— 这些时刻最能反映动作标准度
+  if (res.event === 'down' || res.event === 'count') captureFrame();
 
   train.reps = res.reps;
   train.currentAngle = res.angle;
@@ -156,6 +188,12 @@ async function startTraining() {
   train.isPaused = false;
   startTime = Date.now();
   lostPoseCount.value = 0;
+
+  // 重置本组视觉点评状态
+  frameBuffer.length = 0;
+  lastCaptureTs = 0;
+  formCritique.value = null;
+  formCritiqueLoading.value = false;
 
   timerInterval = setInterval(() => {
     if (!train.isPaused) {
@@ -242,6 +280,16 @@ async function stopTraining() {
   lastSession.value = session;
   showReport.value = true;
   refreshStats();
+
+  // 动作视觉点评（可选 · 异步）：报告先弹出，点评就绪后自动填入
+  if (auth.isLogin && frameBuffer.length) {
+    formCritiqueLoading.value = true;
+    const files = frameBuffer.map((b, i) => new File([b], `frame${i}.jpg`, { type: 'image/jpeg' }));
+    coachApi.formCritique(train.action, result.reps, result.score, files)
+      .then(fc => { formCritique.value = fc; })
+      .catch(() => { /* 可选功能，失败静默不打扰训练总结 */ })
+      .finally(() => { formCritiqueLoading.value = false; });
+  }
 }
 
 /* ========== 统计概览 ========== */
@@ -408,7 +456,9 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <ReportModal :show="showReport" :session="lastSession" @close="showReport = false" />
+    <ReportModal :show="showReport" :session="lastSession"
+                 :form-critique="formCritique" :form-critique-loading="formCritiqueLoading"
+                 @close="showReport = false" />
   </div>
 </template>
 

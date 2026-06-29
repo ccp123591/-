@@ -3,6 +3,7 @@ package com.fitcoach.coach;
 import com.fitcoach.common.ApiResult;
 import com.fitcoach.common.PageResult;
 import com.fitcoach.infra.ai.ChatTurn;
+import com.fitcoach.infra.vision.FormCritique;
 import com.fitcoach.security.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -14,6 +15,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -48,6 +50,17 @@ public class CoachController {
     public ApiResult<FeedbackResponse> weeklyPlan() {
         Long userId = SecurityUtil.currentUserId();
         return ApiResult.ok(coachService.weeklyPlan(userId));
+    }
+
+    @Operation(summary = "动作视觉点评 — 上传 1-3 帧训练画面，JoyAI-VL 给动作反馈")
+    @PostMapping(value = "/form-critique", consumes = "multipart/form-data")
+    public ApiResult<FormCritique> formCritique(
+            @RequestParam("action") String action,
+            @RequestParam(value = "reps", required = false) Integer reps,
+            @RequestParam(value = "score", required = false) Integer score,
+            @RequestParam("frames") List<MultipartFile> frames) {
+        Long userId = SecurityUtil.currentUserId();
+        return ApiResult.ok(coachService.formCritique(userId, action, reps, score, frames));
     }
 
     @Operation(summary = "历史反馈列表（分页）")
