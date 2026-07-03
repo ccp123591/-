@@ -803,4 +803,19 @@ onBeforeUnmount(() => {
     min-height: 360px;
   }
 }
+
+/* 手机端：压缩纵向占用，让「开始训练」尽量少滚动就能碰到 */
+@media (max-width: 767px) {
+  .train-page { padding-top: 8px; }
+  .brand-row { margin-bottom: 4px; }
+  .brand-logo-ico { width: 26px; height: 26px; }
+  .brand-n { font-size: 16px; }
+  .stats-overview { gap: 8px; margin-bottom: 10px; }
+  .stat-mini { padding: 10px 12px 9px; }
+  .stat-ico { width: 18px; height: 18px; margin-bottom: 5px; }
+  .stat-v { font-size: 21px; }
+  .video-container { aspect-ratio: 16 / 10; }
+  .control-panel { padding: 12px; gap: 10px; }
+  .btn-start { height: 48px; }
+}
 </style>
