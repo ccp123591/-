@@ -187,13 +187,13 @@ function close() {
 
 .stat-summary { text-align: center; margin: 20px 0; }
 .big-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 56px;
-  font-weight: 900;
+  font-weight: 600;
   line-height: 1;
-  background: var(--grad-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: -.03em;
+  color: var(--text);
 }
 .big-lbl { font-size: 12px; color: var(--text-3); margin-top: 4px; }
 
@@ -209,7 +209,7 @@ function close() {
   padding: 10px;
   text-align: center;
 }
-.sv { font-size: 20px; font-weight: 800; color: var(--cyan); }
+.sv { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 600; color: var(--text); }
 .sl { font-size: 10px; color: var(--text-3); margin-top: 2px; }
 
 .btn-row { display: flex; gap: 10px; margin-top: 18px; }

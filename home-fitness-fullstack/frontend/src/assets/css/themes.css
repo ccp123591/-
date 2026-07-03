@@ -1,107 +1,122 @@
 /* ============================================================
    FitCoach — Themes (6 palettes)
+   亮色主题的主按钮统一为墨色（--grad-primary 覆写），
+   强调色只做点缀：指示、数据、活跃态。
    ============================================================ */
 
 /* dark is default (see base.css) */
 
-/* Light — Claude warm cream */
+/* Light — 亚麻暖阳（默认亮色，温馨基调） */
 html[data-theme="light"] {
-  --bg:          #faf9f5;
-  --bg-card:     #fdfcf8;
-  --bg-card-2:   #f2efe7;
+  --bg:          #faf4ea;
+  --bg-card:     #fffdf8;
+  --bg-card-2:   #f4ebdd;
   --bg-elevated: #ffffff;
-  --border:      rgba(20, 20, 19, .08);
-  --border-hover:rgba(20, 20, 19, .16);
-  --text:        #141413;
-  --text-2:      rgba(20, 20, 19, .64);
-  --text-3:      rgba(20, 20, 19, .38);
-  --shadow-sm: 0 2px 10px rgba(20, 20, 19, .04);
-  --shadow:    0 12px 30px rgba(20, 20, 19, .08);
-  --shadow-lg: 0 24px 60px rgba(20, 20, 19, .12);
-  --nav-bg:     rgba(250, 249, 245, .88);
-  --overlay-bg: rgba(250, 249, 245, .94);
+  --border:      rgba(92, 61, 30, .09);
+  --border-hover:rgba(92, 61, 30, .19);
+  --text:        #37281b;
+  --text-2:      rgba(55, 40, 27, .64);
+  --text-3:      rgba(55, 40, 27, .4);
+  --grad-primary: linear-gradient(135deg, #e6906a 0%, #d2704a 100%);
+  --shadow-sm: 0 2px 6px rgba(150, 100, 60, .06), 0 4px 14px rgba(150, 100, 60, .05);
+  --shadow:    0 2px 8px rgba(150, 100, 60, .07), 0 14px 36px rgba(150, 100, 60, .1);
+  --shadow-lg: 0 4px 12px rgba(150, 100, 60, .08), 0 28px 64px rgba(150, 100, 60, .16);
+  --nav-bg:     rgba(250, 244, 234, .88);
+  --overlay-bg: rgba(255, 253, 248, .94);
 }
-html[data-theme="light"] body::before { opacity: 0; }
+html[data-theme="light"] body::before { opacity: .025; }
 
-/* Ocean */
+/* Ocean — 瓷白 + 雾蓝 */
 html[data-theme="ocean"] {
-  --bg:          #f7f5ef;
-  --bg-card:     #fbfaf5;
-  --bg-card-2:   #eeece4;
+  --bg:          #f4f5f4;
+  --bg-card:     #fcfdfc;
+  --bg-card-2:   #ebeeed;
   --bg-elevated: #ffffff;
-  --border:      rgba(20, 20, 19, .08);
-  --border-hover:rgba(20, 20, 19, .16);
-  --text:        #141413;
-  --text-2:      rgba(20, 20, 19, .64);
-  --text-3:      rgba(20, 20, 19, .38);
-  --cyan:        #6a9bcc;
-  --cyan-dim:    rgba(106, 155, 204, .12);
-  --purple:      #8897bb;
-  --purple-dim:  rgba(136, 151, 187, .14);
-  --grad-primary: linear-gradient(135deg, #6a9bcc 0%, #92aecf 100%);
-  --nav-bg:     rgba(247, 245, 239, .88);
-  --overlay-bg: rgba(251, 250, 245, .94);
+  --border:      rgba(20, 24, 26, .075);
+  --border-hover:rgba(20, 24, 26, .16);
+  --text:        #14181a;
+  --text-2:      rgba(20, 24, 26, .62);
+  --text-3:      rgba(20, 24, 26, .36);
+  --cyan:        #5a89b8;
+  --cyan-dim:    rgba(90, 137, 184, .12);
+  --purple:      #7f93b4;
+  --purple-dim:  rgba(127, 147, 180, .13);
+  --grad-primary: linear-gradient(180deg, #24303a 0%, #161e24 100%);
+  --shadow-sm: 0 1px 2px rgba(20, 24, 26, .04), 0 3px 10px rgba(20, 24, 26, .04);
+  --shadow:    0 1px 2px rgba(20, 24, 26, .05), 0 12px 32px rgba(20, 24, 26, .07);
+  --shadow-lg: 0 2px 4px rgba(20, 24, 26, .06), 0 28px 64px rgba(20, 24, 26, .12);
+  --nav-bg:     rgba(244, 245, 244, .86);
+  --overlay-bg: rgba(252, 253, 252, .94);
 }
+html[data-theme="ocean"] body::before { opacity: .02; }
 
-/* Forest */
+/* Forest — 瓷白 + 苔绿 */
 html[data-theme="forest"] {
-  --bg:          #f6f4ee;
-  --bg-card:     #fbf9f4;
-  --bg-card-2:   #efede5;
+  --bg:          #f4f5f0;
+  --bg-card:     #fcfdf9;
+  --bg-card-2:   #ecede4;
   --bg-elevated: #ffffff;
-  --border:      rgba(20, 20, 19, .08);
-  --border-hover:rgba(20, 20, 19, .16);
-  --text:        #141413;
-  --text-2:      rgba(20, 20, 19, .64);
-  --text-3:      rgba(20, 20, 19, .38);
-  --cyan:        #788c5d;
-  --cyan-dim:    rgba(120, 140, 93, .14);
-  --purple:      #93a57e;
-  --purple-dim:  rgba(147, 165, 126, .16);
-  --grad-primary: linear-gradient(135deg, #788c5d 0%, #9bab86 100%);
-  --nav-bg:     rgba(246, 244, 238, .88);
-  --overlay-bg: rgba(251, 249, 244, .94);
+  --border:      rgba(22, 25, 18, .075);
+  --border-hover:rgba(22, 25, 18, .16);
+  --text:        #161912;
+  --text-2:      rgba(22, 25, 18, .62);
+  --text-3:      rgba(22, 25, 18, .36);
+  --cyan:        #6d8452;
+  --cyan-dim:    rgba(109, 132, 82, .13);
+  --purple:      #8a9c74;
+  --purple-dim:  rgba(138, 156, 116, .14);
+  --grad-primary: linear-gradient(180deg, #2a3122 0%, #191e14 100%);
+  --shadow-sm: 0 1px 2px rgba(22, 25, 18, .04), 0 3px 10px rgba(22, 25, 18, .04);
+  --shadow:    0 1px 2px rgba(22, 25, 18, .05), 0 12px 32px rgba(22, 25, 18, .07);
+  --shadow-lg: 0 2px 4px rgba(22, 25, 18, .06), 0 28px 64px rgba(22, 25, 18, .12);
+  --nav-bg:     rgba(244, 245, 240, .86);
+  --overlay-bg: rgba(252, 253, 249, .94);
 }
+html[data-theme="forest"] body::before { opacity: .02; }
 
-/* Sunset */
+/* Sunset — 瓷白 + 赭橘（品牌暖色） */
 html[data-theme="sunset"] {
-  --bg:          #fbf7f1;
-  --bg-card:     #fffdfa;
-  --bg-card-2:   #f5eee5;
+  --bg:          #f8f5f0;
+  --bg-card:     #fefcf9;
+  --bg-card-2:   #f1ece4;
   --bg-elevated: #ffffff;
-  --border:      rgba(20, 20, 19, .08);
-  --border-hover:rgba(20, 20, 19, .16);
-  --text:        #141413;
-  --text-2:      rgba(20, 20, 19, .64);
-  --text-3:      rgba(20, 20, 19, .38);
-  --cyan:        #d97757;
-  --cyan-dim:    rgba(217, 119, 87, .12);
-  --purple:      #c78a63;
-  --purple-dim:  rgba(199, 138, 99, .15);
-  --grad-primary: linear-gradient(135deg, #d97757 0%, #e0b08f 100%);
-  --nav-bg:     rgba(251, 247, 241, .88);
-  --overlay-bg: rgba(255, 253, 250, .94);
+  --border:      rgba(25, 21, 17, .075);
+  --border-hover:rgba(25, 21, 17, .16);
+  --text:        #191511;
+  --text-2:      rgba(25, 21, 17, .62);
+  --text-3:      rgba(25, 21, 17, .36);
+  --cyan:        #cf6845;
+  --cyan-dim:    rgba(207, 104, 69, .11);
+  --purple:      #bd8258;
+  --purple-dim:  rgba(189, 130, 88, .14);
+  --grad-primary: linear-gradient(180deg, #33281f 0%, #1c1610 100%);
+  --shadow-sm: 0 1px 2px rgba(25, 21, 17, .04), 0 3px 10px rgba(25, 21, 17, .04);
+  --shadow:    0 1px 2px rgba(25, 21, 17, .05), 0 12px 32px rgba(25, 21, 17, .07);
+  --shadow-lg: 0 2px 4px rgba(25, 21, 17, .06), 0 28px 64px rgba(25, 21, 17, .12);
+  --nav-bg:     rgba(248, 245, 240, .86);
+  --overlay-bg: rgba(254, 252, 249, .94);
 }
+html[data-theme="sunset"] body::before { opacity: .02; }
 
-/* Purple Night */
+/* Purple Night — 墨夜 + 雾紫 */
 html[data-theme="purple-night"] {
-  --bg:          #141413;
-  --bg-card:     #1d1c1a;
-  --bg-card-2:   #252420;
-  --bg-elevated: #2e2c28;
-  --cyan:        #d97757;
-  --cyan-dim:    rgba(217, 119, 87, .12);
+  --bg:          #151417;
+  --bg-card:     #1d1c21;
+  --bg-card-2:   #25242a;
+  --bg-elevated: #2e2d34;
+  --cyan:        #a08fd0;
+  --cyan-dim:    rgba(160, 143, 208, .13);
   --purple:      #8a92b8;
-  --purple-dim:  rgba(138, 146, 184, .16);
-  --grad-primary: linear-gradient(135deg, #d97757 0%, #8a92b8 100%);
-  --nav-bg:     rgba(20, 20, 19, .88);
-  --overlay-bg: rgba(29, 28, 26, .94);
+  --purple-dim:  rgba(138, 146, 184, .15);
+  --grad-primary: linear-gradient(180deg, #9a86cc 0%, #8a75c2 100%);
+  --nav-bg:     rgba(21, 20, 23, .86);
+  --overlay-bg: rgba(29, 28, 33, .92);
 }
 
 /* Theme swatches (for settings grid preview) */
-.swatch-dark         { background: linear-gradient(135deg, #141413 0%, #2e2c28 100%); }
-.swatch-light        { background: linear-gradient(135deg, #faf9f5 0%, #f2efe7 100%); }
-.swatch-ocean        { background: linear-gradient(135deg, #f7f5ef 0%, #6a9bcc 100%); }
-.swatch-forest       { background: linear-gradient(135deg, #f6f4ee 0%, #788c5d 100%); }
-.swatch-sunset       { background: linear-gradient(135deg, #fbf7f1 0%, #d97757 100%); }
-.swatch-purple-night { background: linear-gradient(135deg, #141413 0%, #8a92b8 100%); }
+.swatch-dark         { background: linear-gradient(135deg, #161513 0%, #2e2d28 100%); }
+.swatch-light        { background: linear-gradient(135deg, #f7f6f2 0%, #171612 100%); }
+.swatch-ocean        { background: linear-gradient(135deg, #f4f5f4 0%, #5a89b8 100%); }
+.swatch-forest       { background: linear-gradient(135deg, #f4f5f0 0%, #6d8452 100%); }
+.swatch-sunset       { background: linear-gradient(135deg, #f8f5f0 0%, #cf6845 100%); }
+.swatch-purple-night { background: linear-gradient(135deg, #151417 0%, #a08fd0 100%); }

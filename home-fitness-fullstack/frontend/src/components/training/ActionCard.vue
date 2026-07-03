@@ -52,15 +52,9 @@ defineEmits(['select']);
 }
 .action-card:hover { border-color: var(--border-hover); }
 .action-card.selected {
-  border-color: var(--cyan);
-  background: var(--cyan-dim);
-}
-.action-card.selected::before {
-  content: '';
-  position: absolute; inset: 0;
-  background: var(--grad-primary);
-  opacity: .06;
-  pointer-events: none;
+  border-color: var(--text);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
 }
 .icon {
   width: 36px; height: 36px;
