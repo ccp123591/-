@@ -1,10 +1,14 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, watch, onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useAppStore } from '@/stores/app';
 
 const config = useConfigStore();
 const app = useAppStore();
+
+// 家属邮箱（跌倒告警用）— 本地持久化，训练页超时通知时读取
+const emergencyEmail = ref(localStorage.getItem('fc-emergency-email') || '');
+watch(emergencyEmail, v => localStorage.setItem('fc-emergency-email', (v || '').trim()));
 
 const themes = [
   { key: 'dark',         name: '暗黑' },
@@ -209,6 +213,17 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-head">
+        <h3>安全守护</h3>
+      </div>
+      <div class="item">
+        <div class="lbl-row"><span>家属邮箱（跌倒告警）</span></div>
+        <input type="email" v-model="emergencyEmail" placeholder="如 family@example.com" />
+        <p class="hint">训练中检测到疑似跌倒且 2 分钟内未确认安全时，自动发邮件通知这位家属。留空则不通知。</p>
+      </div>
+    </div>
+
     <div class="actions">
       <button class="btn primary" @click="saveAll">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0z"/></svg>
@@ -223,6 +238,8 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
 .page-head { margin-bottom: 16px; }
 .page-head h2 { font-family: var(--font-heading); font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -.04em; }
 .page-head .sub { font-size: 12px; color: var(--text-2); margin-top: 4px; }
+
+.hint { margin-top: 6px; font-size: 11px; color: var(--text-3); line-height: 1.5; }
 
 .card {
   padding: 16px;

@@ -7,6 +7,8 @@ import { useTrainingStore } from '@/stores/training';
 import { poseDetector } from '@/modules/pose';
 import { exercise, ACTION_DEFS } from '@/modules/exercise';
 import { voice } from '@/modules/voice';
+import { fallGuard } from '@/modules/fallguard';
+import { safetyApi } from '@/api/safety';
 import { storage } from '@/modules/storage';
 import { sessionApi } from '@/api/session';
 import { badgeApi } from '@/api/exercise';
@@ -105,10 +107,75 @@ function captureFrame() {
   }, 'image/jpeg', 0.8);
 }
 
+/* ========== 跌倒风险预警 ========== */
+const FALL_CONFIRM_SEC = 120;          // 未确认安全的等待时长，超时邮件通知家属
+const fallAlert = ref(null);           // { level, message }
+const fallCountdown = ref(0);          // 剩余确认秒数（fall 级别时显示）
+const familyNotified = ref(false);
+let fallAlertTimer = null;
+let fallCountdownTimer = null;
+
+function raiseFallAlert(alert) {
+  fallAlert.value = alert;
+  if (fallAlertTimer) clearTimeout(fallAlertTimer);
+  if (alert.level === 'fall') {
+    // 疑似跌倒：警报音（不受语音开关限制）→ 语音确认 → 自动暂停 → 倒计时等确认
+    voice.alarm();
+    setTimeout(() => voice.correct(alert.message), 1400);
+    if (train.isTraining && !train.isPaused) togglePause();
+    startFallCountdown();
+  } else {
+    voice.correct(alert.message);
+    fallAlertTimer = setTimeout(() => { fallAlert.value = null; }, 4000);
+  }
+}
+
+function startFallCountdown() {
+  familyNotified.value = false;
+  fallCountdown.value = FALL_CONFIRM_SEC;
+  if (fallCountdownTimer) clearInterval(fallCountdownTimer);
+  fallCountdownTimer = setInterval(() => {
+    fallCountdown.value--;
+    if (fallCountdown.value % 20 === 0 && fallCountdown.value > 0) voice.alarm();  // 期间持续提醒
+    if (fallCountdown.value <= 0) {
+      clearInterval(fallCountdownTimer);
+      fallCountdownTimer = null;
+      notifyFamily();
+    }
+  }, 1000);
+}
+
+async function notifyFamily() {
+  const email = (localStorage.getItem('fc-emergency-email') || '').trim();
+  if (!email) {
+    fallAlert.value = { level: 'fall', message: '未配置家属邮箱，无法自动通知（设置页可配置）' };
+    return;
+  }
+  try {
+    await safetyApi.fallAlert(email, `动作：${ACTION_DEFS[train.action]?.label || train.action}`);
+    familyNotified.value = true;
+    fallAlert.value = { level: 'fall', message: '已邮件通知家属' };
+  } catch (_) {
+    fallAlert.value = { level: 'fall', message: '通知家属失败，请手动求助' };
+  }
+}
+
+function dismissFallAlert() {
+  fallAlert.value = null;
+  familyNotified.value = false;
+  if (fallCountdownTimer) { clearInterval(fallCountdownTimer); fallCountdownTimer = null; }
+  fallCountdown.value = 0;
+  if (train.isTraining && train.isPaused) togglePause();   // 确认没事后继续训练
+}
+
 /* ========== 姿态结果回调 ========== */
 function onPoseResult(results) {
   if (!train.isTraining || train.isPaused) return;
   const landmarks = results.poseLandmarks;
+
+  const fall = fallGuard.update(landmarks, train.action);
+  if (fall) raiseFallAlert(fall);
+
   const res = exercise.update(landmarks);
 
   // 在动作最低点 / 每次计数时抓帧 —— 这些时刻最能反映动作标准度
@@ -184,6 +251,8 @@ async function startTraining() {
   await countdownRef.value?.run(3);
 
   exercise.init(train.action, config.snapshot(), train.targetReps);
+  fallGuard.reset();
+  fallAlert.value = null;
   train.reset();
   train.isTraining = true;
   train.isPaused = false;
@@ -331,6 +400,8 @@ onMounted(() => {
   refreshStats();
 });
 onBeforeUnmount(() => {
+  if (fallCountdownTimer) { clearInterval(fallCountdownTimer); fallCountdownTimer = null; }
+  if (fallAlertTimer) { clearTimeout(fallAlertTimer); fallAlertTimer = null; }
   if (train.isTraining) stopTraining();
   voice.stopAll();
 });
@@ -410,6 +481,19 @@ onBeforeUnmount(() => {
 
           <transition name="fade">
             <div v-if="train.statusText" class="status-msg">{{ train.statusText }}</div>
+
+          <!-- 跌倒风险预警横幅 -->
+          <transition name="fade">
+            <div v-if="fallAlert" :class="['fall-banner', fallAlert.level]">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 9v4 M12 17h.01 M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+              </svg>
+              <span>{{ fallAlert.message }}</span>
+              <span v-if="fallAlert.level === 'fall' && fallCountdown > 0 && !familyNotified" class="fall-cd">{{ fallCountdown }}s 后通知家属</span>
+              <button v-if="fallAlert.level === 'fall'" class="fall-ok" @click="dismissFallAlert">我没事，继续</button>
+            </div>
+          </transition>
           </transition>
         </div>
       </div>
@@ -467,6 +551,8 @@ onBeforeUnmount(() => {
 .train-page { padding-top: 12px; padding-bottom: 20px; }
 
 .brand-row { margin-bottom: 8px; }
+/* 桌面端侧边栏已有品牌标识，页内不重复 */
+@media (min-width: 1024px) { .brand-row { display: none; } }
 .brand-left { display: flex; align-items: center; gap: 10px; }
 .brand-logo-ico { width: 32px; height: 32px; }
 .brand-n { font-size: 18px; font-weight: 800; letter-spacing: -.3px; }
@@ -479,51 +565,46 @@ onBeforeUnmount(() => {
   margin-bottom: 14px;
 }
 .stat-mini {
-  padding: 12px 10px;
+  padding: 14px 16px 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  text-align: center;
+  border-radius: var(--radius);
+  text-align: left;
   position: relative;
   overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
-.stat-mini::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--grad-primary);
-  opacity: .5;
-}
+.stat-mini:hover { border-color: var(--border-hover); box-shadow: var(--shadow-sm); }
 .stat-ico {
-  width: 28px; height: 28px;
-  margin: 0 auto 4px;
-  color: var(--cyan);
+  width: 22px; height: 22px;
+  margin-bottom: 8px;
+  color: var(--text-3);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.stat-ico svg { width: 18px; height: 18px; }
+.stat-ico svg { width: 17px; height: 17px; }
 .stat-v {
-  font-size: 22px;
-  font-weight: 800;
-  background: var(--grad-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -.02em;
+  color: var(--text);
 }
-.stat-l { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+.stat-l { font-size: 10px; color: var(--text-3); margin-top: 6px; letter-spacing: .08em; text-transform: uppercase; }
 
 .video-wrap { min-width: 0; display: flex; }
 .video-container {
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
-  background: #08080d;
-  border-radius: 16px;
+  background: #0c0b09;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
 }
 .video-container video,
 .video-container canvas {
@@ -554,6 +635,48 @@ onBeforeUnmount(() => {
 .pulse-ring.delay { animation-delay: 1.5s; }
 .placeholder p { font-size: 14px; color: var(--text-2); font-weight: 500; }
 .placeholder span { font-size: 11px; color: var(--text-3); }
+
+.fall-banner {
+  position: absolute;
+  top: 14px; left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 28px);
+  padding: 9px 16px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  z-index: 8;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.fall-banner svg { width: 17px; height: 17px; flex-shrink: 0; }
+.fall-banner.risk { background: rgba(200, 120, 40, .88); }
+.fall-banner.fall { background: rgba(190, 55, 45, .92); animation: fallPulse 1.2s ease-in-out infinite; }
+@keyframes fallPulse {
+  0%, 100% { box-shadow: 0 8px 24px rgba(190, 55, 45, .35); }
+  50%      { box-shadow: 0 8px 32px rgba(190, 55, 45, .7); }
+}
+.fall-cd {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  opacity: .9;
+  white-space: nowrap;
+}
+.fall-ok {
+  margin-left: 4px;
+  padding: 4px 12px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, .92);
+  color: #a33;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 .status-msg {
   position: absolute;
@@ -590,20 +713,22 @@ onBeforeUnmount(() => {
 .btn-start {
   width: 100%;
   height: 52px;
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--grad-primary);
   color: #fff;
   font-size: 15px;
   font-weight: 700;
+  letter-spacing: .01em;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 8px 24px rgba(217, 119, 87, .3);
+  box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
-  transition: transform var(--transition);
+  transition: transform var(--transition), box-shadow var(--transition);
 }
+.btn-start:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
 .btn-start svg { width: 20px; height: 20px; }
 .btn-start:active { transform: scale(.98); }
 .glow {

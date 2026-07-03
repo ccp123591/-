@@ -188,6 +188,29 @@ class Voice {
     if (this.synth) this.synth.cancel();
   }
 
+  /**
+   * 跌倒警报音 — 六声高频急促蜂鸣（双音交替），音量大、穿透力强。
+   * 安全告警不受 enabled 开关限制：关了语音提示也要响。
+   */
+  alarm() {
+    const ctx = this._ctx();
+    if (ctx.state === 'suspended') ctx.resume();
+    const t0 = ctx.currentTime + 0.02;
+    for (let i = 0; i < 6; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      const t = t0 + i * 0.22;
+      osc.frequency.setValueAtTime(i % 2 ? 880 : 1320, t);
+      gain.gain.setValueAtTime(0.5, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    }
+  }
+
   /* ========== 节拍器（Web Audio 高精度） ========== */
   _ctx() {
     if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
