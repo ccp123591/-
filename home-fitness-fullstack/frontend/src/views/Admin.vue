@@ -191,11 +191,11 @@ onMounted(async () => {
 .d-label { width: 64px; font-size: 12px; color: var(--text-2); flex-shrink: 0; }
 .d-bar { flex: 1; height: 8px; background: var(--bg-card-2); border-radius: 100px; overflow: hidden; }
 .d-fill { height: 100%; background: var(--grad-primary); border-radius: 100px; }
-.d-count { width: 36px; text-align: right; font-size: 12px; font-weight: 700; color: var(--cyan); }
+.d-count { width: 36px; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 600; color: var(--text); }
 .kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
 .kv-grid .kv { background: var(--bg-card-2); border-radius: 10px; padding: 10px; text-align: center; }
 .kv-grid .kv span { display: block; font-size: 10px; color: var(--text-3); }
-.kv-grid .kv b { font-size: 16px; color: var(--cyan); }
+.kv-grid .kv b { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; color: var(--text); }
 .trend-title { margin-top: 4px; }
 .trend { display: flex; align-items: flex-end; gap: 8px; height: 80px; padding-top: 4px; }
 .t-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; }

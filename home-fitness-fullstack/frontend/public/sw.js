@@ -1,7 +1,7 @@
 /* FitCoach Service Worker v3.0
  * Offline-first with network fallback, CDN cache for MediaPipe
  */
-const VERSION = 'fitcoach-v4-0-3';   // 换版本号 = 旧缓存自动清除（改样式/发版时记得递增）
+const VERSION = 'fitcoach-v4-0-4';   // 换版本号 = 旧缓存自动清除（改样式/发版时记得递增）
 const APP_SHELL = [
   '/',
   '/index.html',
