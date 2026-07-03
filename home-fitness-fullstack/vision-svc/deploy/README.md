@@ -78,6 +78,8 @@ JOYAI_VL_BASE_URL=http://localhost:8000/v1 python deploy/joyai-vl-smoke.py
 | 现象 | 处理 |
 |------|------|
 | `torch.cuda not available` | 远程机器缺 NVIDIA 驱动/CUDA，先 `nvidia-smi` 确认 |
+| `ImportError: libcudart.so.13` | PyPI 默认 vLLM 轮子按 CUDA 13 编译；驱动只到 CUDA 12.x 时，改装 GitHub Releases 上的 `+cu129` 变体轮子（可与 torch cu128 栈混用）：下载 `vllm-X.Y.Z+cu129-cp38-abi3-manylinux_2_28_x86_64.whl` 后 `uv pip install ./vllm-*.whl` 覆盖 |
+| `--limit-mm-per-prompt` 解析报错 | vLLM 0.23+ 只认 JSON：`--limit-mm-per-prompt '{"image": 3}'`，旧的 `image=3` 写法已废弃 |
 | vLLM 启动报模型架构不识别 | JoyAI-VL 基座 Qwen3-VL 较新，`VLLM_VERSION` 锁到支持该架构的版本 |
 | OOM | 调小 `JOYAI_VL_MAX_LEN` 或 `JOYAI_VL_GPU_UTIL` |
 | 下载慢/失败 | 设 `HF_ENDPOINT=https://hf-mirror.com` 走镜像，受限模型配 `HUGGING_FACE_HUB_TOKEN` |
