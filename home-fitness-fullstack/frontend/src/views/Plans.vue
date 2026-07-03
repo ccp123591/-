@@ -16,6 +16,23 @@ const adopting = ref(0);
 
 const LEVEL = { NEWBIE: '新手', INTERMEDIATE: '进阶', ADVANCED: '高级' };
 const levelLabel = (l) => LEVEL[l] || l || '新手';
+
+/* 计划封面插画 — 按标题/描述关键词匹配运动小人（头部圆用 arc 画进 path） */
+const COVER_PATHS = {
+  squat:   'M52 26 m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 M52 31 L50 44 L42 54 L45 68 M50 44 L60 52 L58 68 M51 36 L68 40',
+  plank:   'M28 50 m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 M33 52 L76 46 L94 52 M48 51 L50 66 M76 46 L82 64',
+  stretch: 'M68 34 m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 M65 38 L52 48 L52 68 M52 48 L46 68 M64 42 L50 60',
+  jump:    'M60 20 m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 M60 25 L60 45 M60 30 L44 18 M60 30 L76 18 M60 45 L46 67 M60 45 L74 67',
+  pushup:  'M30 52 m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 M35 54 L78 48 L94 54 M46 54 L46 67 M74 50 L78 66'
+};
+function coverArt(p) {
+  const t = `${p.title || ''}${p.description || ''}`;
+  if (/蹲|腿|下肢|臀/.test(t)) return COVER_PATHS.squat;
+  if (/核心|平板|支撑|腹/.test(t)) return COVER_PATHS.plank;
+  if (/拉伸|柔韧|舒展|放松/.test(t)) return COVER_PATHS.stretch;
+  if (/胸|臂|俯卧撑|上肢|推/.test(t)) return COVER_PATHS.pushup;
+  return COVER_PATHS.jump;   // 燃脂/有氧/全身默认开合跳
+}
 const gridList = computed(() => (tab.value === 'market' ? marketPlans.value : officialPlans.value));
 
 async function loadOfficial() {
@@ -69,9 +86,17 @@ onMounted(async () => {
     <div v-if="tab === 'official' || tab === 'market'">
       <div v-if="gridList.length" class="plans-grid">
         <div v-for="p in gridList" :key="p.id" class="plan-card">
-          <div class="plan-cover" :style="{ background: `linear-gradient(135deg, ${p.cover || 'var(--cyan)'}, var(--bg-card-2))` }">
+          <div class="plan-cover" :style="{ background: `linear-gradient(135deg, ${p.cover || '#e0906a'}, var(--bg-card-2))` }">
             <span class="level-tag">{{ levelLabel(p.level) }}</span>
             <div class="cover-deco"></div>
+            <!-- 按计划主题匹配的运动小场景插画 -->
+            <svg class="cover-art" viewBox="0 0 120 80" fill="none"
+                 stroke="rgba(255,255,255,.85)" stroke-width="3"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="102" cy="14" r="7" fill="rgba(255,255,255,.28)" stroke="none"/>
+              <path d="M14 70 H106" stroke="rgba(255,255,255,.35)" stroke-width="2"/>
+              <path :d="coverArt(p)"/>
+            </svg>
           </div>
           <div class="plan-body">
             <div class="plan-title">{{ p.title }}</div>
@@ -164,6 +189,14 @@ onMounted(async () => {
   border-radius: 50%;
   background: rgba(255, 255, 255, .1);
 }
+.cover-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, .12));
+}
+.plan-card:hover .cover-art { transform: translateY(-2px); transition: transform .25s ease; }
 .level-tag {
   position: absolute;
   top: 10px; left: 10px;
