@@ -2,7 +2,8 @@
 
 - POST /infer    房间环境识别 → RoomFeatures（训练前扫房间）
 - POST /critique 动作视觉点评 → FormCritique（训练中/后看关键帧点评动作）
-两条路径都优先走 JoyAI-VL，端点未配置/不可用时各自优雅回落。
+- POST /scene    畅聊场景摘要 → SceneSummary（视频畅聊时看用户在干嘛）
+三条路径都优先走 JoyAI-VL，端点未配置/不可用时各自优雅回落。
 """
 from __future__ import annotations
 
@@ -14,7 +15,8 @@ from fastapi.responses import JSONResponse
 
 from .critique import critique_frames
 from .inference import analyze_frames
-from .schema import FormCritique, RoomFeatures
+from .scene import describe_scene
+from .schema import FormCritique, RoomFeatures, SceneSummary
 
 logger = logging.getLogger("vision-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -52,6 +54,18 @@ async def infer(frames: List[UploadFile] = File(...)) -> RoomFeatures:
     except Exception as e:  # pragma: no cover - defensive
         logger.exception("inference failed: %s", e)
         return JSONResponse(status_code=500, content={"detail": "inference failure"})
+
+
+@app.post("/scene", response_model=SceneSummary)
+async def scene(frames: List[UploadFile] = File(...)) -> SceneSummary:
+    payloads = await _read_frames(frames)
+    try:
+        result = describe_scene(payloads)
+        logger.info("scene ok: model=%s person=%s", result.model, result.personPresent)
+        return result
+    except Exception as e:  # pragma: no cover - defensive
+        logger.exception("scene failed: %s", e)
+        return JSONResponse(status_code=500, content={"detail": "scene failure"})
 
 
 @app.post("/critique", response_model=FormCritique)

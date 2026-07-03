@@ -19,7 +19,7 @@ import httpx
 
 from .config import JoyaiConfig
 from .rules import action_rules, safety_score
-from .schema import FormCritique, FormIssue, Obstacle, RoomFeatures
+from .schema import FormCritique, FormIssue, Obstacle, RoomFeatures, SceneSummary
 
 logger = logging.getLogger("vision-svc")
 
@@ -286,3 +286,49 @@ def critique_frames_joyai(
     logger.info("joyai-vl critique ok: action=%s issues=%d score=%s",
                 action, len(critique.issues), critique.formScore)
     return critique
+
+
+# —————————————————— 畅聊场景摘要 ——————————————————
+
+_SCENE_SYSTEM = (
+    "You are the eyes of a home-fitness voice companion on a video call with the user. "
+    "Look at the webcam frame(s) and briefly describe what you see so the companion can "
+    "respond naturally. Respond with a single JSON object and nothing else."
+)
+
+_SCENE_PROMPT = (
+    "Return strictly this JSON schema:\n"
+    "{\n"
+    '  "summary": <1-2 short sentences in Chinese: what the person is doing (posture, '
+    "activity, holding anything) and any environment detail worth mentioning for home "
+    "fitness (space, lighting, equipment). Empty string if the frame is unreadable>,\n"
+    '  "personPresent": <true if a person is visible, else false>\n'
+    "}\n"
+    "Do not guess identity, age or emotions beyond the obvious. Output JSON only, "
+    "no prose, no markdown."
+)
+
+
+def _to_scene_summary(data: Dict[str, Any]) -> SceneSummary:
+    summary = data.get("summary")
+    summary = summary.strip() if isinstance(summary, str) else ""
+    present = data.get("personPresent")
+    present = present if isinstance(present, bool) else None
+    return SceneSummary(summary=summary, personPresent=present, model="joyai-vl")
+
+
+def describe_scene_joyai(payloads: List[bytes], config: JoyaiConfig) -> SceneSummary:
+    """调用 JoyAI-VL 做畅聊场景摘要；任何环节失败抛 JoyaiError。"""
+    if not payloads:
+        raise JoyaiError("无输入帧")
+    content: List[Dict[str, Any]] = [{"type": "text", "text": _SCENE_PROMPT}]
+    for p in payloads:
+        content.append({"type": "image_url", "image_url": {"url": _data_url(p)}})
+    messages = [
+        {"role": "system", "content": _SCENE_SYSTEM},
+        {"role": "user", "content": content},
+    ]
+    scene = _to_scene_summary(_extract_json(_request(config, messages)))
+    logger.info("joyai-vl scene ok: person=%s summary_len=%d",
+                scene.personPresent, len(scene.summary))
+    return scene

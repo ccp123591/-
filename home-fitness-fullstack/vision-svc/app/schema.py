@@ -49,3 +49,14 @@ class FormCritique(BaseModel):
     tips: List[str] = []
     formScore: Optional[int] = None
     model: str = "placeholder-v0"
+
+
+class SceneSummary(BaseModel):
+    """畅聊场景摘要 — JoyAI-VL 看畅聊抓帧，给对话模型注入'眼睛看到的'上下文。
+
+    summary 为空 = 视觉不可用/未启用，调用方应跳过注入而不是编造。
+    """
+
+    summary: str = ""
+    personPresent: Optional[bool] = None
+    model: str = "placeholder-v0"
