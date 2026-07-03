@@ -171,6 +171,7 @@ async function ensurePose() {
 async function startTraining() {
   voice.setEnabled(config.voiceEnabled);
   voice.setRate(config.ttsRate);
+  voice.prewarm();   // 后台预热 MiMo 报数/短语缓存，不阻塞开练
 
   try {
     await ensurePose();
