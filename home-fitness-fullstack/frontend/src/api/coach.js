@@ -12,12 +12,30 @@ export const coachApi = {
   history:    (params)    => client.get('/coach/history', { params }),
 
   /**
-   * 陪伴聊天（多轮 + RAG 记忆）。
+   * 陪伴聊天（多轮 + RAG 记忆 + 可选视频画面上下文）。
    * @param {string} message  本次用户输入
    * @param {Array<{role:'user'|'assistant', content:string}>} history 最近若干轮，可空
+   * @param {string|null} sceneSummary /coach/scene 的场景摘要，可空；带上后 AI "看得见"画面
    * @returns {{reply, provider, tokensUsed, recalled[]}}
    */
-  chat: (message, history = []) => client.post('/coach/chat', { message, history }),
+  chat: (message, history = [], sceneSummary = null) =>
+    client.post('/coach/chat', sceneSummary
+      ? { message, history, sceneSummary }
+      : { message, history }),
+
+  /**
+   * 视频畅聊场景摘要 — 上传 1-3 帧摄像头画面，JoyAI-VL 描述看到了什么。
+   * @param {Blob[]} frames 1-3 帧 jpg
+   * @returns {{summary, personPresent, model}} summary 为空表示视觉不可用
+   */
+  scene: (frames) => {
+    const fd = new FormData();
+    frames.forEach(f => fd.append('frames', f, 'frame.jpg'));
+    return client.post('/coach/scene', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000  // VLM 推理可能稍慢
+    });
+  },
 
   /** 叙旧 — 按时间近的最近聊天记忆做老朋友式回顾 */
   reminisce: () => client.post('/coach/reminisce'),

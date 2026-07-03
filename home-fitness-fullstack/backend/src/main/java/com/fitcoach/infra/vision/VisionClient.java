@@ -104,6 +104,31 @@ public class VisionClient {
         }
     }
 
+    /**
+     * POST /scene multipart（1-3 frames）→ SceneSummary。
+     * 视频畅聊场景摘要：把畅聊抓帧交给 JoyAI-VL 描述"用户在干嘛"。
+     */
+    public SceneSummary scene(List<MultipartFile> frames) {
+        if (frames == null || frames.isEmpty()) {
+            throw new BusinessException(400, "未上传任何帧");
+        }
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        for (MultipartFile f : frames) {
+            body.add("frames", toResource(f));
+        }
+        try {
+            return restClient.post()
+                    .uri(baseUrl + "/scene")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(body)
+                    .retrieve()
+                    .body(SceneSummary.class);
+        } catch (RestClientException e) {
+            log.warn("[vision] /scene 失败: {}", e.getMessage());
+            throw new BusinessException(503, "场景识别服务暂不可用");
+        }
+    }
+
     /** GET /healthz — 用于启动期/admin 检测。 */
     public boolean isHealthy() {
         try {

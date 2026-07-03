@@ -20,21 +20,25 @@
  *   error         ref(string|null)
  *
  * 上层注入：
- *   chat(text, history) → Promise<{ reply, recalled, provider }>
+ *   chat(text, history, sceneSummary?) → Promise<{ reply, recalled, provider }>
  *   speak(text) → Promise<{ audioBase64, mimeType, fallbackText }>
+ *   getSceneContext?() → Promise<string|null> —— 视频畅聊："看一眼"当前画面出场景摘要。
+ *     用户一开口就并行预取（藏进说话时间里），句子说完后随 chat 附带；
+ *     没就绪最多再等 SCENE_WAIT_MS，超时就不带画面，绝不拖垮对话回合。
  */
 
 import { ref, onBeforeUnmount } from 'vue';
 
-const SILENCE_MS = 1500;  // 静音多久判定一句话说完
-const MAX_HISTORY = 8;    // 给后端的历史长度
+const SILENCE_MS = 1500;    // 静音多久判定一句话说完
+const MAX_HISTORY = 8;      // 给后端的历史长度
+const SCENE_WAIT_MS = 2500; // 句子说完后最多再等画面摘要多久
 
 function getRecognitionCtor() {
   if (typeof window === 'undefined') return null;
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
-export function useVoiceChat({ chat, speak }) {
+export function useVoiceChat({ chat, speak, getSceneContext }) {
   const Recognition = getRecognitionCtor();
   const supported = !!Recognition;
 
@@ -51,6 +55,7 @@ export function useVoiceChat({ chat, speak }) {
   let restartTimer = null;
   let userStopped = true;                            // true=外部主动 stop，循环就别再启
   let processing = false;                            // 防止同一句话重复入 chat
+  let scenePromise = null;                           // 本句话的画面摘要预取（开口时启动）
 
   function clearTimers() {
     if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
@@ -87,6 +92,11 @@ export function useVoiceChat({ chat, speak }) {
         }
       }
       interim.value = (finalBuf + interimText).trim();
+
+      // 用户一开口就并行"看一眼"画面 —— 抓帧+VLM 藏进说话时间里，不占回合延迟
+      if (getSceneContext && !scenePromise && interim.value) {
+        scenePromise = Promise.resolve().then(getSceneContext).catch(() => null);
+      }
 
       // 任何时候一来语音 → 重置静音计时
       if (silenceTimer) clearTimeout(silenceTimer);
@@ -160,12 +170,23 @@ export function useVoiceChat({ chat, speak }) {
     stopRecognition();          // thinking/speaking 期间停 STT
     destroyRecognition();       // 彻底关掉避免 onend 续听竞态
 
+    // 画面上下文：优先用开口时预取的；没有（如点选追问）就现取；超时不带画面
+    let scene = null;
+    if (getSceneContext) {
+      const p = scenePromise || Promise.resolve().then(getSceneContext).catch(() => null);
+      scenePromise = null;
+      scene = await Promise.race([
+        p,
+        new Promise(res => setTimeout(() => res(null), SCENE_WAIT_MS))
+      ]).catch(() => null);
+    }
+
     let reply = '', recalled = [], provider = null;
     try {
       const history = transcripts.value
         .slice(-MAX_HISTORY * 2 - 1, -1)   // 不含本条
         .map(t => ({ role: t.role, content: t.content }));
-      const res = await chat(text, history);
+      const res = await chat(text, history, scene);
       reply    = res?.reply || '我这边没听清，再说一遍好吗？';
       recalled = res?.recalled || [];
       provider = res?.provider;
@@ -284,6 +305,7 @@ export function useVoiceChat({ chat, speak }) {
     interim.value = '';
     finalBuf = '';
     processing = false;
+    scenePromise = null;
   }
 
   function clearTranscripts() {

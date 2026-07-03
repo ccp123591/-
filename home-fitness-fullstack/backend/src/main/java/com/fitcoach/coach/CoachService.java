@@ -11,6 +11,7 @@ import com.fitcoach.infra.ai.CoachAiResponse;
 import com.fitcoach.infra.ai.CoachContext;
 import com.fitcoach.infra.memory.VectorMemoryService;
 import com.fitcoach.infra.vision.FormCritique;
+import com.fitcoach.infra.vision.SceneSummary;
 import com.fitcoach.infra.vision.VisionClient;
 import com.fitcoach.room.RoomLayoutService;
 import com.fitcoach.session.Session;
@@ -119,10 +120,27 @@ public class CoachService {
     }
 
     /**
+     * 视频畅聊场景摘要 — 把畅聊抓帧交给 vision-svc(JoyAI-VL) 描述"用户在干嘛"。
+     * 即时调用，不落库；返回的 summary 为空表示视觉不可用，前端应跳过注入。
+     */
+    public SceneSummary scene(Long userId, List<MultipartFile> frames) {
+        SceneSummary s = visionClient.scene(frames);
+        log.info("[coach] scene user={} model={} person={}",
+                userId, s == null ? null : s.getModel(), s == null ? null : s.getPersonPresent());
+        return s;
+    }
+
+    /** 陪伴聊天（无画面）。 */
+    public ChatResponse chat(Long userId, String message, List<ChatTurn> history) {
+        return chat(userId, message, history, null);
+    }
+
+    /**
      * 陪伴聊天：把当前消息当 RAG query 召回相关记忆，注入 ctx 后调 provider，
      * 然后把"用户说 / 我回了"两条都写回记忆库 — 下次再聊就能被唤醒。
+     * sceneSummary 为视频畅聊抓帧的场景摘要（JoyAI-VL，可空）——注入后 AI "看得见"用户。
      */
-    public ChatResponse chat(Long userId, String message, List<ChatTurn> history) {
+    public ChatResponse chat(Long userId, String message, List<ChatTurn> history, String sceneSummary) {
         if (message == null || message.isBlank()) {
             throw new BusinessException(400, "消息不能为空");
         }
@@ -131,6 +149,9 @@ public class CoachService {
         }
 
         CoachContext ctx = buildContext(userId, null);
+        if (sceneSummary != null && !sceneSummary.isBlank()) {
+            ctx.setSceneSummary(sceneSummary.strip());
+        }
 
         // 用「当前消息」作为 RAG query — 比 buildContext 默认 query 更精准
         String recalled = "";

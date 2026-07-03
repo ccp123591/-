@@ -180,6 +180,11 @@ public class MockCoachProvider implements AiCoachProvider {
             sb.append("你接着说。");
         }
 
+        // 视频畅聊场景摘要（JoyAI-VL 看到的）— mock 也自然带一句，方便 dev 验证注入链路
+        if (ctx.getSceneSummary() != null && !ctx.getSceneSummary().isBlank()) {
+            sb.append(" 对了，我从画面里看到：").append(ctx.getSceneSummary());
+        }
+
         return ChatAiResponse.builder()
                 .reply(sb.toString())
                 .provider(name())

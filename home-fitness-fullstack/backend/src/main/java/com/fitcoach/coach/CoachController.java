@@ -4,6 +4,7 @@ import com.fitcoach.common.ApiResult;
 import com.fitcoach.common.PageResult;
 import com.fitcoach.infra.ai.ChatTurn;
 import com.fitcoach.infra.vision.FormCritique;
+import com.fitcoach.infra.vision.SceneSummary;
 import com.fitcoach.security.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -72,11 +73,19 @@ public class CoachController {
         return ApiResult.ok(coachService.history(userId, page, size));
     }
 
-    @Operation(summary = "陪伴聊天 — 多轮 + RAG 记忆唤醒")
+    @Operation(summary = "陪伴聊天 — 多轮 + RAG 记忆唤醒 + 可选视频画面上下文")
     @PostMapping("/chat")
     public ApiResult<ChatResponse> chat(@Valid @RequestBody ChatRequest req) {
         Long userId = SecurityUtil.currentUserId();
-        return ApiResult.ok(coachService.chat(userId, req.getMessage(), req.getHistory()));
+        return ApiResult.ok(coachService.chat(userId, req.getMessage(), req.getHistory(),
+                req.getSceneSummary()));
+    }
+
+    @Operation(summary = "视频畅聊场景摘要 — 上传 1-3 帧摄像头画面，JoyAI-VL 描述看到了什么")
+    @PostMapping(value = "/scene", consumes = "multipart/form-data")
+    public ApiResult<SceneSummary> scene(@RequestParam("frames") List<MultipartFile> frames) {
+        Long userId = SecurityUtil.currentUserId();
+        return ApiResult.ok(coachService.scene(userId, frames));
     }
 
     @Operation(summary = "叙旧 — 按时间近回顾最近的对话")
@@ -105,5 +114,9 @@ public class CoachController {
         /** 最近若干轮，服务端会再截到 8 轮以内；可为 null */
         @Size(max = 30, message = "history 最多 30 轮")
         private List<ChatTurn> history;
+
+        /** 视频畅聊场景摘要（/coach/scene 的产出，可空）；带上后 AI "看得见"当前画面。 */
+        @Size(max = 300, message = "sceneSummary 最长 300 字")
+        private String sceneSummary;
     }
 }
