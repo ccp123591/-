@@ -195,7 +195,7 @@ onMounted(loadStats);
   border-top: 1px solid var(--border);
 }
 .hero-stat { flex: 1; }
-.hs-v { font-size: 22px; font-weight: 800; color: var(--cyan); }
+.hs-v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 22px; font-weight: 600; color: var(--text); }
 .hs-l { font-size: 11px; color: var(--text-3); margin-top: 2px; }
 .hs-divider { width: 1px; height: 32px; background: var(--border); }
 

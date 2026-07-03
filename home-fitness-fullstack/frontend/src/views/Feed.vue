@@ -209,7 +209,7 @@ onMounted(load);
 }
 .w-stats { display: flex; gap: 14px; }
 .w-stats div { text-align: center; }
-.w-stats span { font-size: 16px; font-weight: 800; color: var(--cyan); }
+.w-stats span { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; color: var(--text); }
 .w-stats small { display: block; font-size: 9px; color: var(--text-3); }
 
 .post-actions {
