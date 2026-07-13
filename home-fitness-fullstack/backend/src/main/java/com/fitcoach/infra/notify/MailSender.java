@@ -1,7 +1,7 @@
 package com.fitcoach.infra.notify;
 
 /**
- * 邮件发送抽象 — 生产可换接 JavaMailSender / SES / SendGrid。Mock 实现仅打日志。
+ * 邮件发送抽象 — dev 使用日志 mock，prod 使用 JavaMailSender/SMTP。
  */
 public interface MailSender {
     /** 通用邮件发送（subject/text 由调用方拼装）。 */

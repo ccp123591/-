@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,7 @@ import java.util.Map;
 /**
  * 训练安全告警 — 跌倒预警超时未确认时通知紧急联系人（家属）。
  * 邮箱/手机号由前端在触发时随请求带上（存于用户本地设置），
- * 发送走 MailSender/SmsSender 抽象：dev 为日志 mock，生产可换真实现。
+ * 发送走 MailSender/SmsSender 抽象：dev 为日志 mock，prod 邮件走 SMTP 真实发送。
  */
 @Slf4j
 @Tag(name = "12. 安全告警", description = "跌倒检测超时未确认时通知紧急联系人")
@@ -59,18 +60,32 @@ public class SafetyController {
                 nickname, time,
                 req.getNote() == null || req.getNote().isBlank() ? "" : "（" + req.getNote().strip() + "）");
 
+        boolean delivered = false;
+        String mailProvider = hasEmail ? mailSender.name() : "none";
+        String smsProvider = hasPhone ? smsSender.name() : "none";
         if (hasEmail) {
             mailSender.send(req.getContactEmail().strip(), subject, body);
+            delivered = isExternalProvider(mailProvider);
         }
         if (hasPhone) {
             smsSender.send(req.getContactPhone().strip(), subject + "，请尽快联系确认。", "fall-alert");
+            delivered = delivered || isExternalProvider(smsProvider);
         }
         log.warn("[safety] fall-alert user={} email={} phone={}", userId, hasEmail, hasPhone);
-        return ApiResult.ok(Map.of("notified", true));
+        return ApiResult.ok(Map.of(
+                "notified", delivered,
+                "mailProvider", mailProvider == null ? "unknown" : mailProvider,
+                "smsProvider", smsProvider == null ? "unknown" : smsProvider,
+                "reason", delivered ? "sent" : "development log provider only"));
+    }
+
+    private static boolean isExternalProvider(String provider) {
+        return provider != null && !provider.startsWith("log-");
     }
 
     @Data
     public static class FallAlertRequest {
+        @Email(message = "紧急联系人邮箱格式不正确")
         @Size(max = 120)
         private String contactEmail;
         @Size(max = 30)
