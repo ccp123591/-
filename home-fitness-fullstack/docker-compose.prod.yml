@@ -1,0 +1,35 @@
+services:
+  backend:
+    image: fitcoach-backend:prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: ${DB_NAME:-fitcoach}
+      DB_USER: ${DB_USER:-fitcoach}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (at least 32 bytes)}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS in .env}
+      ADMIN_INIT_PASSWORD: ${ADMIN_INIT_PASSWORD:-}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:?Set SMTP_USERNAME in .env}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env}
+      SMTP_FROM: ${SMTP_FROM:?Set SMTP_FROM in .env}
+      SMTP_AUTH: ${SMTP_AUTH:-true}
+      SMTP_STARTTLS_ENABLE: ${SMTP_STARTTLS_ENABLE:-true}
+      # 默认将 SMTP 纳入 actuator readiness；仅本地无凭据冒烟测试时可显式关闭。
+      MANAGEMENT_HEALTH_MAIL_ENABLED: ${MANAGEMENT_HEALTH_MAIL_ENABLED:-true}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    image: fitcoach-frontend:prod
+
+  mysql:
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-fitcoach}
+      MYSQL_USER: ${DB_USER:-fitcoach}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}

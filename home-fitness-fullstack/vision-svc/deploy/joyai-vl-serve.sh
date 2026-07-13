@@ -63,4 +63,4 @@ exec vllm serve "$MODEL" \
   --dtype bfloat16 \
   --max-model-len "$MAX_LEN" \
   --gpu-memory-utilization "$GPU_UTIL" \
-  --limit-mm-per-prompt image=3
+  --limit-mm-per-prompt '{"image": 3}'

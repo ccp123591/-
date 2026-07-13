@@ -81,6 +81,8 @@ ai:
 vision:
   base-url: ${VISION_BASE_URL:http://localhost:8081}
   timeout-seconds: ${VISION_TIMEOUT_SECONDS:30}
+  # 环境安全评估不应把 hash 占位结果当作真实识别入库。
+  allow-placeholder-results: ${VISION_ALLOW_PLACEHOLDER_RESULTS:false}
 
 # 文件上传
 upload:
@@ -89,7 +91,7 @@ upload:
 
 # 跨域（逗号分隔，供 @Value List<String> 绑定）
 cors:
-  allowed-origins: http://localhost:5173,http://localhost:4173,http://localhost:8080
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173,http://localhost:8080}
 
 # SpringDoc OpenAPI
 springdoc:

@@ -118,8 +118,9 @@ docker compose logs -f backend
 # 停止
 docker compose down
 
-# 完整生产模式（含 MySQL，需先配好 .env）
-docker compose --profile prod up -d --build
+# 完整生产模式（MySQL + Flyway + prod 安全配置）
+# 先复制 .env.example 为 .env，填写 DB/JWT/CORS 等必需值
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile prod up -d --build
 ```
 
 > dev profile 用 H2 内存数据库 + data.sql 自动建表与种子；Redis 用真实容器，启用所有需要 Redis 的功能（限流、锁定、refresh 黑名单、RAG）。
@@ -154,12 +155,15 @@ npm run dev
 
 | 变量 | 必需 | 默认 | 说明 |
 | --- | :---: | --- | --- |
-| `SPRING_PROFILES_ACTIVE` | ✓ | dev | 切 prod 用 MySQL + Flyway |
+| `SPRING_PROFILES_ACTIVE` | ✓ | dev | 生产 override 固定为 prod，使用 MySQL + Flyway |
 | `DB_HOST` / `DB_PORT` / `DB_NAME` | prod | localhost/3306/fitcoach | MySQL 连接 |
-| `DB_USER` / `DB_PASSWORD` | prod | fitcoach/fitcoach | MySQL 凭据 |
+| `DB_USER` / `DB_PASSWORD` | prod | fitcoach/无 | MySQL 凭据，生产密码必填 |
 | `SPRING_DATA_REDIS_HOST` / `_PORT` / `_PASSWORD` | ✓ | localhost/6379/空 | Redis 连接 |
 | `JWT_SECRET` | prod | — | **prod 必须** ≥ 32 字节，启动校验 |
 | `CORS_ALLOWED_ORIGINS` | prod | localhost 系列 | 跨域白名单（逗号分隔）|
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | prod | 无/587/无 | 跌倒预警、验证码和重置邮件真实发送 |
+| `JOYAI_VL_BASE_URL` / `JOYAI_VL_MODEL` / `JOYAI_VL_API_KEY` | JoyAI | 空/joyai-vl/空 | 指向分开部署的远端 OpenAI 兼容视觉端点，本机 Compose 不启动 JoyAI |
+| `FRONTEND_PORT` / `BACKEND_PORT` / `VISION_PORT` / `REDIS_PORT` / `MYSQL_PORT` | — | 5173/8080/8081/6379/3306 | 宿主机端口冲突时可覆盖 |
 | `AI_COACH_PROVIDER` | — | mock | mock / mimo |
 | `MIMO_API_KEY` / `MIMO_BASE_URL` / `MIMO_MODEL` | mimo | — | 小米 MiMo 接入 |
 | `AI_MEMORY_ENABLED` | — | true | RAG 向量记忆开关 |
@@ -233,13 +237,13 @@ npm run dev
 | PWA | 离线可用 + 安装 | ✅ | — |
 | 适配 | 手机 / 平板 / 桌面 | ✅ | — |
 
-> 后端测试覆盖：**81 个单元 / 集成测试，0 failures**
+> 当前验证：**后端 120 个单元 / 集成测试，视觉服务 36 个 pytest，前端跌倒规则 4 个 Node 测试，全部通过**
 
 ---
 
 ## 七、生产部署建议
 
-1. **Profile**：`SPRING_PROFILES_ACTIVE=prod`，会自动启用 Flyway（V1..V6 自动迁移）、`spring.sql.init.mode=never`、`server.error.include-*=never`、`ddl-auto=validate`。
+1. **Profile**：使用 `docker-compose.prod.yml`，会固定启用 `prod` 并执行 Flyway（V1..V8）、`spring.sql.init.mode=never`、`server.error.include-*=never`、`ddl-auto=validate`。
 2. **JWT**：`JWT_SECRET` 必须 **≥ 32 字节** 随机串；启动期 `JwtUtil.@PostConstruct` 会校验，不达标直接 `IllegalStateException` 退出。
 3. **数据库**：MySQL 8.x，连接串自动带 `useUnicode=true&characterEncoding=utf8`。Flyway 用 `baseline-on-migrate=true`。
 4. **Redis**：所有限流 / 黑名单 / 锁定 / 排行榜缓存依赖 Redis，**强烈建议**生产配齐。Redis 不可用时各服务都会 fail-open（业务不中断，但安全控制降级）。
@@ -247,6 +251,7 @@ npm run dev
 6. **RAG**：默认 `memory` 内存存储（单实例上限 500/用户）。生产多实例需切到 `redis`（RediSearch，待实现）或 Qdrant/Pinecone 等。
 7. **安全头**：HSTS 1 年 + includeSubDomains、`X-Content-Type-Options:nosniff`、`Referrer-Policy:strict-origin-when-cross-origin`、`Permissions-Policy:camera=(self),microphone=(),geolocation=()`。HSTS 仅在 HTTPS 下生效。
 8. **观测**：`/actuator/health` (公开)、`/actuator/info` (公开)、`/actuator/metrics` (ADMIN)。每请求带 `X-Request-Id`，日志格式 `[rid] METHOD PATH status=X duration=Yms user=Z`。
+9. **跌倒预警**：检测与 JoyAI 无关，由浏览器 MediaPipe 完成。生产必须配置 SMTP；开发态 `log-mail` 只记日志，前端不再误报“已发送真实邮件”。
 
 ---
 
