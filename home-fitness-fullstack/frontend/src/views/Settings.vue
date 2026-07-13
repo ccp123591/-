@@ -1,14 +1,14 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useConfigStore } from '@/stores/config';
 import { useAppStore } from '@/stores/app';
+import { resetDemoState } from '@/api/demoMock';
 
 const config = useConfigStore();
 const app = useAppStore();
 
 // 家属邮箱（跌倒告警用）— 本地持久化，训练页超时通知时读取
 const emergencyEmail = ref(localStorage.getItem('fc-emergency-email') || '');
-watch(emergencyEmail, v => localStorage.setItem('fc-emergency-email', (v || '').trim()));
 
 const themes = [
   { key: 'dark',         name: '暗黑' },
@@ -25,6 +25,14 @@ function pickTheme(k) {
 }
 
 function saveAll() {
+  const email = (emergencyEmail.value || '').trim();
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    app.showToast('请输入有效的家属邮箱', 'error');
+    return;
+  }
+  emergencyEmail.value = email;
+  if (email) localStorage.setItem('fc-emergency-email', email);
+  else localStorage.removeItem('fc-emergency-email');
   config.save();
   app.showToast('设置已保存', 'success');
 }
@@ -33,8 +41,17 @@ async function resetAll() {
   const ok = await app.showConfirm('恢复默认', '确定恢复所有设置为默认值？');
   if (ok) {
     config.reset();
+    emergencyEmail.value = '';
+    localStorage.removeItem('fc-emergency-email');
     app.showToast('已恢复默认', 'success');
   }
+}
+
+async function resetDemoData() {
+  const ok = await app.showConfirm('重置演示数据', '恢复预置的训练记录、计划、动态、挑战和情绪数据？');
+  if (!ok) return;
+  resetDemoState();
+  app.showToast('演示数据已恢复', 'success');
 }
 
 onMounted(() => { /* config 已在 App.vue 加载 */ });
@@ -187,6 +204,13 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
         </div>
         <h3>陪伴 Agent</h3>
       </div>
+      <label class="toggle-item">
+        <span>
+          全站演示模式
+          <small class="toggle-note">使用本地模拟数据，不连接 AI、情绪分析或语音服务</small>
+        </span>
+        <input type="checkbox" v-model="config.demoMode" />
+      </label>
       <div class="item">
         <div class="lbl-row"><span>陪伴教练昵称</span><span class="v">{{ config.companionName || '小柯' }}</span></div>
         <input class="text-input" type="text" v-model="config.companionName" maxlength="8" placeholder="例如：小柯" />
@@ -197,7 +221,7 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
       </label>
       <label class="toggle-item">
         <span>反馈到达后自动播报</span>
-        <input type="checkbox" v-model="config.companionAutoSpeak" />
+        <input type="checkbox" v-model="config.companionAutoSpeak" :disabled="config.demoMode" />
       </label>
     </div>
 
@@ -219,8 +243,8 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
       </div>
       <div class="item">
         <div class="lbl-row"><span>家属邮箱（跌倒告警）</span></div>
-        <input type="email" v-model="emergencyEmail" placeholder="如 family@example.com" />
-        <p class="hint">训练中检测到疑似跌倒且 2 分钟内未确认安全时，自动发邮件通知这位家属。留空则不通知。</p>
+        <input type="email" v-model="emergencyEmail" maxlength="120" placeholder="如 family@example.com" />
+        <p class="hint">训练中检测到疑似跌倒且 2 分钟内未确认安全时，自动发邮件通知这位家属。需要先登录，且生产部署已配置 SMTP；留空则不通知。</p>
       </div>
     </div>
 
@@ -230,6 +254,7 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
         保存设置
       </button>
       <button class="btn ghost" @click="resetAll">恢复默认</button>
+      <button v-if="config.demoMode" class="btn ghost" @click="resetDemoData">重置演示数据</button>
     </div>
   </div>
 </template>
@@ -315,6 +340,8 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
 }
 .toggle-item:last-child { border-bottom: none; }
 .toggle-item input { accent-color: var(--cyan); transform: scale(1.2); }
+.toggle-item input:disabled { opacity: .45; cursor: not-allowed; }
+.toggle-note { display: block; margin-top: 4px; color: var(--text-3); font-size: 11px; font-weight: 400; }
 
 .text-input {
   width: 100%;

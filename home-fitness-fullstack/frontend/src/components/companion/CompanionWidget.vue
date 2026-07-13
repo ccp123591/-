@@ -45,11 +45,11 @@ const widgetEl   = ref(null);
 
 const visible = computed(() => {
   if (!config.companionEnabled) return false;
-  if (!auth.isLogin) return false;
   if (route.meta?.layout === 'none') return false;
   if (HIDDEN_ROUTES.includes(route.path)) return false;
   return true;
 });
+const canChat = computed(() => auth.isLogin || config.demoMode);
 
 const companionName = computed(() => config.companionName || '小柯');
 const greeting = computed(() => {
@@ -113,6 +113,21 @@ function persistMessages() {
 
 // ====== 建议态 ======
 async function fetchSuggestion(force = false) {
+  if (config.demoMode) {
+    loading.value = true;
+    await sleep(180);
+    suggestion.value = {
+      review: '演示数据：本周已完成 3 次训练，共 42 分钟。',
+      suggestion: force
+        ? '今天可以做 3 组深蹲和 2 组拉伸，动作之间休息 45 秒。'
+        : '保持轻中强度，先热身 5 分钟，再完成深蹲、平板支撑和拉伸。',
+      encouragement: '稳定完成，比一次练得太猛更重要。',
+      provider: 'frontend-demo'
+    };
+    emotionMood.value = { dominantEmotion: 'positive', avgScore: 0.82 };
+    loading.value = false;
+    return;
+  }
   if (!force) {
     const c = readSnapCache();
     if (c?.suggestion) {
@@ -141,6 +156,7 @@ async function fetchSuggestion(force = false) {
 }
 
 async function speak() {
+  if (config.demoMode) return;
   if (!suggestion.value || speaking.value) return;
   speaking.value = true;
   try {
@@ -168,6 +184,21 @@ async function sendMessage(text) {
   if (!text) input.value = '';
   sending.value = true;
   await scrollToBottom();
+
+  if (config.demoMode) {
+    try {
+      await sleep(260);
+      const mock = createDemoReply(txt);
+      emotionMood.value = mock.mood
+        ? { dominantEmotion: mock.mood, avgScore: 0.8 }
+        : emotionMood.value;
+      await addAssistantReply(mock.reply, mock.recalled, 'frontend-demo');
+    } finally {
+      sending.value = false;
+      await scrollToBottom();
+    }
+    return;
+  }
 
   // 情感静默捕捉 — 用户每条消息都尝试落到情感库，不阻塞主流程
   emotionApi.analyze(txt, 'chat', null)
@@ -203,6 +234,47 @@ async function sendMessage(text) {
     // 每聊一阵子顺手刷新一下情感汇总（拿后端的 7 天聚合）
     refreshEmotionSummary();
   }
+}
+
+function recentUserMessages() {
+  return messages.value
+    .filter(m => m.role === 'user')
+    .slice(-3)
+    .map(m => m.content);
+}
+
+function createDemoReply(text) {
+  const recalled = recentUserMessages().slice(0, -1);
+  if (/低落|难过|焦虑|累|压力|不开心/.test(text)) {
+    return {
+      reply: '听起来你今天有点辛苦。先不用逼自己完成高强度目标，我们做 3 分钟呼吸和肩颈拉伸，状态允许再继续。\n\n演示模式里我会陪你把目标拆小：今天完成一点点，也算认真照顾自己。',
+      mood: 'negative', recalled
+    };
+  }
+  if (/本周|计划|安排|一周/.test(text)) {
+    return {
+      reply: '给你一份演示周计划：周一深蹲与臀桥，周三俯卧撑与平板支撑，周五全身循环，周末安排一次舒缓拉伸。每次 20 分钟，强度循序渐进。',
+      mood: 'positive', recalled
+    };
+  }
+  if (/练什么|训练|动作|健身/.test(text)) {
+    return {
+      reply: '今天推荐轻量全身训练：热身 5 分钟，深蹲 3×12、俯卧撑 3×8、平板支撑 3×30 秒，最后拉伸 5 分钟。动作质量优先。',
+      mood: 'positive', recalled
+    };
+  }
+  if (/上次|聊到|记得|叙旧/.test(text)) {
+    return {
+      reply: recalled.length
+        ? `这次演示会话里，你刚才提到过“${recalled[recalled.length - 1]}”。我们可以从这里接着聊。`
+        : '这是一次新的演示会话，目前还没有更早的聊天记录。先告诉我一个训练目标，我会在本次会话里记住它。',
+      mood: 'neutral', recalled
+    };
+  }
+  return {
+    reply: '收到。在演示模式下，我可以陪你聊训练、心情和每周计划。你可以试试问：“今天练什么？”',
+    mood: 'neutral', recalled
+  };
 }
 
 /** 拉一次最新的 7 天情感聚合（节流：最多 30s/次） */
@@ -243,7 +315,7 @@ async function addAssistantReply(reply, recalled, provider) {
     await scrollToBottom();
 
     // 聊天就是会说话 —— 先并行启动 TTS，再走打字机；两者不互相阻塞
-    const speakP = tryAutoSpeak(msg).catch(() => {});
+    const speakP = config.demoMode ? Promise.resolve() : tryAutoSpeak(msg).catch(() => {});
     await runTypewriter(msg);
     // 不强等 speak 播完，下一段也能开始排队
     speakP;
@@ -307,6 +379,16 @@ async function reminisce() {
     time: Date.now()
   });
   await scrollToBottom();
+  if (config.demoMode) {
+    const recalled = recentUserMessages();
+    const reply = recalled.length
+      ? `本次演示会话里，我们聊过：${recalled.map(x => `“${x}”`).join('、')}。你想从哪一段继续？`
+      : '这是一次新的演示会话，还没有可回顾的内容。聊几句后我就能帮你回顾。';
+    await addAssistantReply(reply, recalled, 'frontend-demo');
+    sending.value = false;
+    await scrollToBottom();
+    return;
+  }
   try {
     const res = await coachApi.reminisce();
     await addAssistantReply(res.reply, res.recalled || [], res.provider);
@@ -335,6 +417,7 @@ function clearChat() {
 }
 
 async function speakReply(msg) {
+  if (config.demoMode) return;
   if (!msg?.content) return;
   // 命中本条音频缓存 → 直接播，不打 MiMo
   if (msg.audioCache?.audioBase64) {
@@ -354,6 +437,7 @@ async function speakReply(msg) {
 
 /** 自动播报内部用：跟 speakReply 一样会写入 msg.audioCache。 */
 async function tryAutoSpeak(msg) {
+  if (config.demoMode) return;
   try {
     const tts = await ttsApi.speak(msg.content);
     if (tts?.audioBase64 && tts?.mimeType) {
@@ -369,6 +453,7 @@ async function tryAutoSpeak(msg) {
 async function expand() {
   if (open.value) return;
   open.value = true;
+  if (!canChat.value) return;
   // 进 chat tab 时如果消息为空，留个开场白（直接全显，无需打字机）
   if (tab.value === 'chat' && messages.value.length === 0) {
     const greet = `${greeting.value}。今天想随便聊聊，还是聊点训练？`;
@@ -417,7 +502,25 @@ watch(tab, async (v, old) => {
   if (v === 'chat') await scrollToBottom();
 });
 
-watch(() => route.path, () => { if (open.value) collapse(); });
+watch(() => config.demoMode, enabled => {
+  if (enabled && tab.value === 'voice') tab.value = 'chat';
+  suggestion.value = null;
+  emotionMood.value = null;
+});
+
+function shouldAutoOpen() {
+  return route.path === '/train'
+    && typeof window !== 'undefined'
+    && window.matchMedia('(min-width: 1024px)').matches;
+}
+
+watch(() => route.path, async () => {
+  if (open.value) collapse();
+  if (shouldAutoOpen()) {
+    await nextTick();
+    await expand();
+  }
+});
 
 onMounted(() => {
   const c = readSnapCache();
@@ -428,6 +531,7 @@ onMounted(() => {
   loadMessages();
   document.addEventListener('click', onDocClick);
   document.addEventListener('keydown', onKey);
+  if (shouldAutoOpen()) expand();
 });
 onBeforeUnmount(() => {
   stopPlayback();
@@ -468,23 +572,38 @@ function displayText(m) {
             <span class="dot"></span>
             <span class="nm">{{ companionName }}</span>
             <span class="rl">陪伴教练</span>
+            <span v-if="config.demoMode" class="demo-badge">演示模式</span>
           </div>
           <button class="close" @click="collapse" aria-label="收起">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12 M18 6L6 18"/></svg>
           </button>
         </header>
 
+        <section v-if="!canChat" class="guest-gate">
+          <div class="guest-orb">
+            <svg viewBox="0 0 32 32" fill="none">
+              <circle cx="16" cy="16" r="15" fill="#d97757"/>
+              <circle cx="11" cy="14" r="1.6" fill="#fff"/>
+              <circle cx="21" cy="14" r="1.6" fill="#fff"/>
+              <path d="M11 20q5 4 10 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3>{{ companionName }} 在这里</h3>
+          <p>登录后可恢复历史对话、训练建议、情绪陪伴和语音畅聊。</p>
+          <button class="guest-login" @click="router.push('/login')">登录后开始对话</button>
+        </section>
+
         <!-- Tab 切换 -->
-        <nav class="p-tabs">
+        <nav v-if="canChat" class="p-tabs">
           <button :class="['tab', { active: tab === 'chat' }]"  @click="tab = 'chat'">闲聊</button>
-          <button :class="['tab', { active: tab === 'voice' }]" @click="tab = 'voice'">
+          <button v-if="auth.isLogin && !config.demoMode" :class="['tab', { active: tab === 'voice' }]" @click="tab = 'voice'">
             畅聊<span class="tab-new">语音</span>
           </button>
           <button :class="['tab', { active: tab === 'snap' }]"  @click="tab = 'snap'">一句话</button>
         </nav>
 
         <!-- ============= 闲聊 ============= -->
-        <section v-if="tab === 'chat'" class="chat-area">
+        <section v-if="canChat && tab === 'chat'" class="chat-area">
           <div class="chat-head-row">
             <div v-if="moodTag" :class="['mood', moodTag.tone]">
               <span>{{ moodTag.label }}</span>
@@ -522,7 +641,7 @@ function displayText(m) {
                 <div class="meta-row" v-if="!m.system">
                   <span class="t">{{ fmtTime(m.time) }}</span>
                   <button
-                    v-if="m.role === 'assistant' && !m.error && !isTyping(m) && m.audioCache?.audioBase64"
+                    v-if="!config.demoMode && m.role === 'assistant' && !m.error && !isTyping(m) && m.audioCache?.audioBase64"
                     class="link replay"
                     title="重听这条"
                     @click="speakReply(m)"
@@ -570,12 +689,12 @@ function displayText(m) {
         </section>
 
         <!-- ============= 畅聊（语音 hands-free） ============= -->
-        <section v-else-if="tab === 'voice'" class="voice-area">
+        <section v-else-if="auth.isLogin && !config.demoMode && tab === 'voice'" class="voice-area">
           <VoiceCompanion ref="voiceRef" />
         </section>
 
         <!-- ============= 一句话 ============= -->
-        <section v-else class="snap-area">
+        <section v-else-if="canChat" class="snap-area">
           <div class="greet">{{ greeting }}</div>
           <div v-if="moodTag" :class="['mood', moodTag.tone]">
             <span>{{ moodTag.label }}</span>
@@ -590,7 +709,7 @@ function displayText(m) {
           <div v-else class="loading">还没什么数据可说，先去练一次吧。</div>
 
           <footer class="snap-foot">
-            <button class="mini" :disabled="!suggestion || speaking" @click="speak">
+            <button v-if="!config.demoMode" class="mini" :disabled="!suggestion || speaking" @click="speak">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
               <span>{{ speaking ? '播报中' : '听一下' }}</span>
             </button>
@@ -681,6 +800,29 @@ function displayText(m) {
   .companion-fab.mode-voice .panel { width: 400px; }
 }
 
+.guest-gate {
+  min-height: 310px;
+  padding: 42px 30px 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.guest-orb { width: 66px; height: 66px; margin-bottom: 16px; }
+.guest-orb svg { width: 100%; height: 100%; filter: drop-shadow(0 10px 18px rgba(201, 100, 66, .25)); }
+.guest-gate h3 { margin: 0 0 8px; font-size: 18px; color: var(--text); }
+.guest-gate p { margin: 0 0 20px; max-width: 280px; color: var(--text-2); font-size: 13px; line-height: 1.7; }
+.guest-login {
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--grad-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(201, 100, 66, .22);
+}
+
 .cmp-pop-enter-active, .cmp-pop-leave-active {
   transition: opacity .18s ease, transform .22s cubic-bezier(.2, 1.1, .3, 1);
   transform-origin: bottom right;
@@ -693,6 +835,15 @@ function displayText(m) {
 .who .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
 .who .nm { font-weight: 700; color: var(--text); font-size: 14px; }
 .who .rl { font-size: 11px; color: var(--text-3); letter-spacing: .04em; }
+.demo-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(217, 119, 87, .14);
+  border: 1px solid rgba(217, 119, 87, .28);
+  color: var(--orange, #d97757);
+  font-size: 10px;
+  font-weight: 700;
+}
 .close {
   width: 24px; height: 24px;
   display: flex; align-items: center; justify-content: center;

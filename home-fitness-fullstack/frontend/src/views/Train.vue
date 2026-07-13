@@ -9,6 +9,7 @@ import { exercise, ACTION_DEFS } from '@/modules/exercise';
 import { voice } from '@/modules/voice';
 import { fallGuard } from '@/modules/fallguard';
 import { safetyApi } from '@/api/safety';
+import { getDemoSessions } from '@/api/demoMock';
 import { storage } from '@/modules/storage';
 import { sessionApi } from '@/api/session';
 import { badgeApi } from '@/api/exercise';
@@ -109,13 +110,14 @@ function captureFrame() {
 
 /* ========== 跌倒风险预警 ========== */
 const FALL_CONFIRM_SEC = 120;          // 未确认安全的等待时长，超时邮件通知家属
+const DEMO_FALL_CONFIRM_SEC = 10;       // 演示按钮使用短倒计时，便于现场展示完整流程
 const fallAlert = ref(null);           // { level, message }
 const fallCountdown = ref(0);          // 剩余确认秒数（fall 级别时显示）
 const familyNotified = ref(false);
 let fallAlertTimer = null;
 let fallCountdownTimer = null;
 
-function raiseFallAlert(alert) {
+function raiseFallAlert(alert, confirmSec = FALL_CONFIRM_SEC) {
   fallAlert.value = alert;
   if (fallAlertTimer) clearTimeout(fallAlertTimer);
   if (alert.level === 'fall') {
@@ -123,16 +125,16 @@ function raiseFallAlert(alert) {
     voice.alarm();
     setTimeout(() => voice.correct(alert.message), 1400);
     if (train.isTraining && !train.isPaused) togglePause();
-    startFallCountdown();
+    startFallCountdown(confirmSec);
   } else {
     voice.correct(alert.message);
     fallAlertTimer = setTimeout(() => { fallAlert.value = null; }, 4000);
   }
 }
 
-function startFallCountdown() {
+function startFallCountdown(seconds = FALL_CONFIRM_SEC) {
   familyNotified.value = false;
-  fallCountdown.value = FALL_CONFIRM_SEC;
+  fallCountdown.value = seconds;
   if (fallCountdownTimer) clearInterval(fallCountdownTimer);
   fallCountdownTimer = setInterval(() => {
     fallCountdown.value--;
@@ -145,16 +147,37 @@ function startFallCountdown() {
   }, 1000);
 }
 
+/** 演示模式专用：不依赖摄像头或姿态识别，直接走跌倒告警展示流程。 */
+function simulateDemoFallAlert() {
+  if (!config.demoMode) return;
+  raiseFallAlert({
+    level: 'fall',
+    message: '演示模式：检测到疑似跌倒，请确认是否安全'
+  }, DEMO_FALL_CONFIRM_SEC);
+}
+
 async function notifyFamily() {
+  if (auth.isDemo) {
+    await safetyApi.fallAlert('demo@fitcoach.local', `演示动作：${ACTION_DEFS[train.action]?.label || train.action}`);
+    familyNotified.value = false;
+    fallAlert.value = { level: 'fall', message: '演示模式：已模拟跌倒预警，未发送真实邮件' };
+    return;
+  }
+  if (!auth.isLogin) {
+    fallAlert.value = { level: 'fall', message: '当前为游客模式，无法自动通知家属；请立即手动求助并登录后启用通知' };
+    return;
+  }
   const email = (localStorage.getItem('fc-emergency-email') || '').trim();
   if (!email) {
     fallAlert.value = { level: 'fall', message: '未配置家属邮箱，无法自动通知（设置页可配置）' };
     return;
   }
   try {
-    await safetyApi.fallAlert(email, `动作：${ACTION_DEFS[train.action]?.label || train.action}`);
-    familyNotified.value = true;
-    fallAlert.value = { level: 'fall', message: '已邮件通知家属' };
+    const result = await safetyApi.fallAlert(email, `动作：${ACTION_DEFS[train.action]?.label || train.action}`);
+    familyNotified.value = !!result?.notified;
+    fallAlert.value = result?.notified
+      ? { level: 'fall', message: '已邮件通知家属' }
+      : { level: 'fall', message: '当前为开发日志通知，未发送真实邮件；请手动求助' };
   } catch (_) {
     fallAlert.value = { level: 'fall', message: '通知家属失败，请手动求助' };
   }
@@ -248,7 +271,11 @@ async function startTraining() {
   }
 
   poseDetector.start();
-  await countdownRef.value?.run(3);
+  const countdownCompleted = await countdownRef.value?.run(3);
+  if (countdownCompleted === false) {
+    poseDetector.stop();
+    return;
+  }
 
   exercise.init(train.action, config.snapshot(), train.targetReps);
   fallGuard.reset();
@@ -327,11 +354,13 @@ async function stopTraining() {
     targetReps: train.targetReps
   };
 
-  // 本地保存
-  try {
-    const localId = await storage.saveSession(session);
-    session.localId = localId;
-  } catch (_) { /* ignore */ }
+  // 演示记录由独立 Mock 仓库维护，绝不写入用户真实 IndexedDB。
+  if (!auth.isDemo) {
+    try {
+      const localId = await storage.saveSession(session);
+      session.localId = localId;
+    } catch (_) { /* ignore */ }
+  }
 
   // 上传后端（失败也继续）
   if (auth.isLogin) {
@@ -339,7 +368,7 @@ async function stopTraining() {
       const remote = await sessionApi.create(session);
       if (remote?.id) {
         session.remoteId = remote.id;
-        storage.markSynced(session.localId, remote.id);
+        if (!auth.isDemo && session.localId) storage.markSynced(session.localId, remote.id);
       }
       // 训练后检测徽章解锁
       const unlocked = await badgeApi.check();
@@ -364,7 +393,9 @@ async function stopTraining() {
 
 /* ========== 统计概览 ========== */
 async function refreshStats() {
-  const sessions = await storage.getAllSessions();
+  const sessions = auth.isDemo
+    ? getDemoSessions().map(s => ({ ...s, date: s.sessionDate || s.createdAt }))
+    : await storage.getAllSessions();
   const now = new Date();
   const todayStr = localDateStr(now);
   stats.value.today = sessions.filter(s => s.date?.startsWith(todayStr))
@@ -481,6 +512,7 @@ onBeforeUnmount(() => {
 
           <transition name="fade">
             <div v-if="train.statusText" class="status-msg">{{ train.statusText }}</div>
+          </transition>
 
           <!-- 跌倒风险预警横幅 -->
           <transition name="fade">
@@ -494,7 +526,18 @@ onBeforeUnmount(() => {
               <button v-if="fallAlert.level === 'fall'" class="fall-ok" @click="dismissFallAlert">我没事，继续</button>
             </div>
           </transition>
-          </transition>
+
+          <button
+            v-if="config.demoMode && !fallAlert"
+            class="btn-demo-fall"
+            data-testid="demo-fall-alert"
+            @click="simulateDemoFallAlert"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 9v4 M12 17h.01 M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+            </svg>
+            <span><b>模拟跌倒预警</b><small>无需摄像头 · 10 秒演示倒计时</small></span>
+          </button>
         </div>
       </div>
 
@@ -643,19 +686,27 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  max-width: calc(100% - 28px);
+  width: calc(100% - 28px);
+  max-width: 700px;
   padding: 9px 16px;
-  border-radius: 100px;
+  border-radius: 14px;
   font-size: 13px;
   font-weight: 700;
   color: #fff;
   z-index: 8;
+  justify-content: center;
+  flex-wrap: wrap;
   backdrop-filter: blur(12px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
 }
 .fall-banner svg { width: 17px; height: 17px; flex-shrink: 0; }
+.fall-banner > span:first-of-type { flex: 1; min-width: 220px; line-height: 1.4; }
 .fall-banner.risk { background: rgba(200, 120, 40, .88); }
-.fall-banner.fall { background: rgba(190, 55, 45, .92); animation: fallPulse 1.2s ease-in-out infinite; }
+.fall-banner.fall {
+  background: linear-gradient(135deg, #d94f45, #a92f2a);
+  border: 1px solid rgba(255, 255, 255, .22);
+  animation: fallPulse 1.2s ease-in-out infinite;
+}
 @keyframes fallPulse {
   0%, 100% { box-shadow: 0 8px 24px rgba(190, 55, 45, .35); }
   50%      { box-shadow: 0 8px 32px rgba(190, 55, 45, .7); }
@@ -756,6 +807,34 @@ onBeforeUnmount(() => {
 .btn-ctrl.pause { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255, 159, 67, .3); }
 .btn-ctrl.stop  { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255, 90, 90, .3); }
 .btn-ctrl:active { transform: scale(.97); }
+
+.btn-demo-fall {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 7;
+  width: auto;
+  max-width: calc(100% - 28px);
+  min-height: 48px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 12px;
+  background: rgba(190, 55, 45, .88);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .3);
+  backdrop-filter: blur(10px);
+  transition: transform var(--transition), background var(--transition);
+}
+.btn-demo-fall:hover { background: rgba(205, 60, 48, .96); transform: translateY(-1px); }
+.btn-demo-fall svg { width: 19px; height: 19px; flex: 0 0 auto; }
+.btn-demo-fall span { display: flex; flex-direction: column; gap: 1px; }
+.btn-demo-fall b { font-size: 13px; }
+.btn-demo-fall small { color: rgba(255, 255, 255, .78); font-size: 10px; font-weight: 500; }
 
 .toggle-row {
   padding-top: 12px;

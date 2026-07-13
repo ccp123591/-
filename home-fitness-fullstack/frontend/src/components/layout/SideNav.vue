@@ -102,7 +102,7 @@ function go(n) {
         <div v-else class="avatar-dot initial">{{ (auth.displayName || '?')[0] }}</div>
         <div class="user-meta">
           <div class="name">{{ auth.displayName }}</div>
-          <div class="role">{{ auth.isAdmin ? '管理员' : (auth.isLogin ? '已登录' : '游客') }}</div>
+          <div class="role">{{ auth.isDemo ? '演示模式' : (auth.isAdmin ? '管理员' : (auth.isRealLogin ? '已登录' : '游客')) }}</div>
         </div>
       </div>
     </div>

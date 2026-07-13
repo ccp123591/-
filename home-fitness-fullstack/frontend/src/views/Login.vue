@@ -52,6 +52,11 @@ function applyAuth(data) {
 
 async function submit() {
   if (primaryDisabled.value || loading.value) return;
+  if (auth.isDemo) {
+    app.showToast('当前为演示模式，无需登录；可在设置中关闭后连接真实账号', 'info');
+    router.push('/train');
+    return;
+  }
   loading.value = true;
   try {
     let data;
@@ -86,6 +91,11 @@ async function submit() {
 
 async function loginGuest() {
   if (loading.value) return;
+  if (auth.isDemo) {
+    app.showToast('已进入全站演示模式', 'info');
+    router.push('/train');
+    return;
+  }
   loading.value = true;
   try {
     let deviceId = localStorage.getItem('fitcoach_device_id');
@@ -118,6 +128,10 @@ let smsTimer = null;
 
 async function sendSms() {
   if (!form.value.phone || smsCountdown.value > 0) return;
+  if (auth.isDemo) {
+    app.showToast('演示模式不会发送真实验证码', 'info');
+    return;
+  }
   try {
     await authApi.sendSmsCode(form.value.phone, 'login');
     app.showToast('验证码已发送', 'success');

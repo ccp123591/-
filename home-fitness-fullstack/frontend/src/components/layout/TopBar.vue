@@ -21,7 +21,8 @@ function toLogin() { router.push('/login'); }
           <path d="M15 7A5 5 0 0 0 5 7v4l-2 2h14l-2-2V7z"/><path d="M7 15a3 3 0 0 0 6 0"/>
         </svg>
       </button>
-      <button v-if="!auth.isLogin" class="login-btn" @click="toLogin">登录</button>
+      <span v-if="auth.isDemo" class="demo-account">演示账户</span>
+      <button v-else-if="!auth.isRealLogin" class="login-btn" @click="toLogin">登录</button>
       <div v-else class="top-avatar" :style="{ background: auth.avatar ? `url(${auth.avatar}) center/cover` : 'var(--grad-primary)' }"></div>
     </div>
   </header>
@@ -57,6 +58,14 @@ function toLogin() { router.push('/login'); }
   transition: transform var(--transition);
 }
 .login-btn:active { transform: scale(.96); }
+.demo-account {
+  padding: 6px 10px;
+  border-radius: 100px;
+  background: var(--cyan-dim);
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 700;
+}
 .top-avatar {
   width: 36px; height: 36px;
   border-radius: 50%;

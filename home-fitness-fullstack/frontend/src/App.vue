@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from 'vue';
+import { computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useConfigStore } from '@/stores/config';
 import { useAppStore } from '@/stores/app';
@@ -18,11 +18,15 @@ const auth = useAuthStore();
 const useLayout = computed(() => route.meta?.layout !== 'none');
 
 function trySync() {
-  if (!auth.isLogin) return;
+  if (!auth.isRealLogin || auth.isDemo) return;
   syncOfflineSessions().then(n => {
     if (n > 0) app.showToast(`已同步 ${n} 条离线训练记录`, 'success');
   });
 }
+
+watch(() => config.demoMode, enabled => {
+  auth.setDemoMode(enabled);
+}, { immediate: true });
 
 onMounted(() => {
   config.loadFromLocal();

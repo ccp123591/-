@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, watch } from 'vue';
 
 const CONFIG_KEY = 'fitcoach_config';
+const COMPANION_PANEL_VERSION = 2;
 
 const DEFAULT_CONFIG = {
   squat: { down: 90, up: 160 },
@@ -19,6 +20,7 @@ const DEFAULT_CONFIG = {
   metronomeEnabled: false,
   autoPauseEnabled: true,
   coachEnabled: true,
+  demoMode: true,
   companionEnabled: true,
   companionAutoSpeak: false,
   companionName: '小柯'
@@ -47,6 +49,7 @@ export const useConfigStore = defineStore('config', () => {
   const metronomeEnabled = ref(DEFAULT_CONFIG.metronomeEnabled);
   const autoPauseEnabled = ref(DEFAULT_CONFIG.autoPauseEnabled);
   const coachEnabled = ref(DEFAULT_CONFIG.coachEnabled);
+  const demoMode = ref(DEFAULT_CONFIG.demoMode);
   const companionEnabled = ref(DEFAULT_CONFIG.companionEnabled);
   const companionAutoSpeak = ref(DEFAULT_CONFIG.companionAutoSpeak);
   const companionName = ref(DEFAULT_CONFIG.companionName);
@@ -62,9 +65,11 @@ export const useConfigStore = defineStore('config', () => {
       metronomeEnabled: metronomeEnabled.value,
       autoPauseEnabled: autoPauseEnabled.value,
       coachEnabled: coachEnabled.value,
+      demoMode: demoMode.value,
       companionEnabled: companionEnabled.value,
       companionAutoSpeak: companionAutoSpeak.value,
-      companionName: companionName.value
+      companionName: companionName.value,
+      companionPanelVersion: COMPANION_PANEL_VERSION
     };
   }
 
@@ -89,7 +94,11 @@ export const useConfigStore = defineStore('config', () => {
         metronomeEnabled.value = data.metronomeEnabled;
         autoPauseEnabled.value = data.autoPauseEnabled;
         coachEnabled.value = data.coachEnabled;
-        companionEnabled.value = data.companionEnabled;
+        demoMode.value = data.demoMode;
+        // v2 恢复训练页右侧助手卡片：旧配置曾可能被冒烟测试关闭，升级时重新开启一次。
+        companionEnabled.value = saved.companionPanelVersion === COMPANION_PANEL_VERSION
+          ? data.companionEnabled
+          : true;
         companionAutoSpeak.value = data.companionAutoSpeak;
         companionName.value = data.companionName || DEFAULT_CONFIG.companionName;
       }
@@ -101,7 +110,7 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   // 开关类设置（训练页直接 v-model 绑 store）变更即持久化，避免离开页面丢配置
-  watch([voiceEnabled, metronomeEnabled, autoPauseEnabled, coachEnabled,
+  watch([voiceEnabled, metronomeEnabled, autoPauseEnabled, coachEnabled, demoMode,
          companionEnabled, companionAutoSpeak],
         () => { try { save(); } catch (_) {} });
 
@@ -121,6 +130,7 @@ export const useConfigStore = defineStore('config', () => {
     metronomeEnabled.value = DEFAULT_CONFIG.metronomeEnabled;
     autoPauseEnabled.value = DEFAULT_CONFIG.autoPauseEnabled;
     coachEnabled.value = DEFAULT_CONFIG.coachEnabled;
+    demoMode.value = DEFAULT_CONFIG.demoMode;
     companionEnabled.value = DEFAULT_CONFIG.companionEnabled;
     companionAutoSpeak.value = DEFAULT_CONFIG.companionAutoSpeak;
     companionName.value = DEFAULT_CONFIG.companionName;
@@ -146,7 +156,7 @@ export const useConfigStore = defineStore('config', () => {
   return {
     squat, stretch, pushup, lunge, bridge, plank, jumpingJack,
     bpm, ttsRate, theme, weeklyGoal,
-    voiceEnabled, metronomeEnabled, autoPauseEnabled, coachEnabled,
+    voiceEnabled, metronomeEnabled, autoPauseEnabled, coachEnabled, demoMode,
     companionEnabled, companionAutoSpeak, companionName,
     snapshot, loadFromLocal, save, reset, applyTheme
   };

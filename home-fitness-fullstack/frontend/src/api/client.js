@@ -6,6 +6,8 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import router from '@/router';
+import { isDemoModeEnabled } from '@/modules/demoMode';
+import { createDemoResponse } from './demoMock';
 
 const client = axios.create({
   baseURL: '/api',
@@ -13,6 +15,16 @@ const client = axios.create({
 });
 
 client.interceptors.request.use(config => {
+  if (isDemoModeEnabled()) {
+    config.adapter = async request => ({
+      data: { code: 0, message: 'demo', data: await createDemoResponse(request) },
+      status: 200,
+      statusText: 'OK',
+      headers: { 'x-fitcoach-demo': 'true' },
+      config: request,
+      request: null
+    });
+  }
   const auth = useAuthStore();
   if (auth.token) {
     config.headers.Authorization = `Bearer ${auth.token}`;

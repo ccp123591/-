@@ -69,14 +69,20 @@ async function exportCsv() {
 }
 
 async function clearAll() {
-  const msg = auth.isLogin
+  const msg = auth.isDemo
+    ? '确定清空当前演示会话中的训练记录？可在设置中恢复演示数据。'
+    : auth.isLogin
     ? '仅清空本机离线缓存，云端已同步的记录会保留并继续显示。确定继续？'
     : '确定清空所有本地训练记录？此操作不可撤销';
   const ok = await app.showConfirm('清空本地记录', msg);
   if (ok) {
-    await storage.clearSessions();
+    if (auth.isDemo) {
+      await Promise.all(sessions.value.filter(s => s.id != null).map(s => sessionApi.remove(s.id)));
+    } else {
+      await storage.clearSessions();
+    }
     await load();
-    app.showToast(auth.isLogin ? '本地缓存已清空（云端记录保留）' : '记录已清空', 'success');
+    app.showToast(auth.isDemo ? '演示训练记录已清空' : (auth.isLogin ? '本地缓存已清空（云端记录保留）' : '记录已清空'), 'success');
   }
 }
 

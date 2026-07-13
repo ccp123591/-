@@ -69,7 +69,8 @@ onMounted(loadStats);
       </div>
       <div class="profile-name">{{ auth.displayName }}</div>
       <div class="profile-role">
-        <span v-if="auth.isLogin" class="role-tag role-tag-cyan">已登录</span>
+        <span v-if="auth.isDemo" class="role-tag role-tag-cyan">演示账户</span>
+        <span v-else-if="auth.isRealLogin" class="role-tag role-tag-cyan">已登录</span>
         <span v-else-if="auth.guestMode" class="role-tag role-tag-gray">游客模式</span>
         <span v-else class="role-tag role-tag-gray">未登录</span>
       </div>
@@ -121,11 +122,11 @@ onMounted(loadStats);
         <span>管理后台</span>
         <svg class="arrow" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 5l5 5-5 5"/></svg>
       </router-link>
-      <button v-if="auth.isLogin" class="menu-item danger" @click="logout">
+      <button v-if="auth.isRealLogin && !auth.isDemo" class="menu-item danger" @click="logout">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M13 4h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-3 M8 10h9 M13 6l4 4-4 4"/></svg>
         <span>退出登录</span>
       </button>
-      <router-link v-else to="/login" class="menu-item login">
+      <router-link v-else-if="!auth.isDemo" to="/login" class="menu-item login">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M9 4h-4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h4 M13 10H4 M10 6l4 4-4 4"/></svg>
         <span>登录 / 注册</span>
       </router-link>
