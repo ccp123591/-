@@ -8,6 +8,7 @@ import com.fitcoach.infra.vision.RoomFeatures;
 import com.fitcoach.infra.vision.VisionClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,9 @@ public class RoomLayoutService {
     private final VisionClient visionClient;
     private final RoomLayoutRepository repo;
 
+    @Value("${vision.allow-placeholder-results:false}")
+    private boolean allowPlaceholderResults;
+
     @Transactional
     public RoomLayoutResponse scan(Long userId, List<MultipartFile> frames) {
         if (frames == null || frames.isEmpty()) {
@@ -45,6 +49,10 @@ public class RoomLayoutService {
 
         LocalDateTime captured = LocalDateTime.now();
         RoomFeatures features = visionClient.infer(frames);
+        String model = features == null ? null : features.getModel();
+        if (!allowPlaceholderResults && (model == null || model.startsWith("placeholder"))) {
+            throw new BusinessException(503, "JoyAI 视觉服务未配置，无法生成可信的环境安全评估");
+        }
         LocalDateTime processed = LocalDateTime.now();
 
         String json;
