@@ -132,6 +132,9 @@ public class AuthService {
         }
         Long uid = Long.valueOf(claims.getSubject());
         User u = userRepo.findById(uid).orElseThrow(() -> new BusinessException(401, "用户不存在"));
+        if (!"ACTIVE".equals(u.getStatus())) {
+            throw new BusinessException(403, "Account is disabled");
+        }
         Map<String, Object> r = new HashMap<>();
         r.put("accessToken", jwtUtil.generateAccessToken(u.getId(), u.getNickname(), u.getRole()));
         return r;

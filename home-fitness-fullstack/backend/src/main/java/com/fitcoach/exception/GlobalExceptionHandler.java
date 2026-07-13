@@ -27,9 +27,12 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ApiResult<Void> handleBusiness(BusinessException e) {
+    public ResponseEntity<ApiResult<Void>> handleBusiness(BusinessException e) {
         log.warn("业务异常: {}", e.getMessage());
-        return ApiResult.fail(e.getCode(), e.getMessage());
+        HttpStatus status = HttpStatus.resolve(e.getCode());
+        if (status == null) status = HttpStatus.BAD_REQUEST;
+        return ResponseEntity.status(status)
+                .body(ApiResult.fail(e.getCode(), e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

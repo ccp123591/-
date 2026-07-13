@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -29,7 +30,9 @@ public class ChallengeService {
     private final UserRepository userRepo;
 
     public List<ChallengeResponse> listActive(Long me) {
+        LocalDate today = LocalDate.now();
         return challengeRepo.findByStatusOrderByCreatedAtDesc("ACTIVE").stream()
+                .filter(c -> isWithinWindow(c, today))
                 .map(c -> toResponse(c, me))
                 .toList();
     }
@@ -46,6 +49,17 @@ public class ChallengeService {
                 .orElseThrow(() -> new BusinessException(404, "挑战不存在"));
         if (!"ACTIVE".equals(c.getStatus())) {
             throw new BusinessException(400, "挑战已结束");
+        }
+        LocalDate today = LocalDate.now();
+        try {
+            if (c.getStartDate() != null && today.isBefore(LocalDate.parse(c.getStartDate()))) {
+                throw new BusinessException(400, "Challenge has not started");
+            }
+            if (c.getEndDate() != null && today.isAfter(LocalDate.parse(c.getEndDate()))) {
+                throw new BusinessException(400, "Challenge has ended");
+            }
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new BusinessException(500, "Invalid challenge date configuration");
         }
         if (!participantRepo.existsByChallengeIdAndUserId(challengeId, userId)) {
             ChallengeParticipant p = ChallengeParticipant.builder()
@@ -80,7 +94,9 @@ public class ChallengeService {
     public void onSessionCreated(Long userId, String action, Integer reps) {
         if (action == null || reps == null || reps <= 0) return;
         for (Challenge c : challengeRepo.findByStatusOrderByCreatedAtDesc("ACTIVE")) {
-            if (action.equals(c.getAction()) && participantRepo.existsByChallengeIdAndUserId(c.getId(), userId)) {
+            if (isWithinWindow(c, LocalDate.now())
+                    && action.equals(c.getAction())
+                    && participantRepo.existsByChallengeIdAndUserId(c.getId(), userId)) {
                 syncProgress(userId, c);
             }
         }
@@ -112,6 +128,17 @@ public class ChallengeService {
     }
 
     // ---- helpers ----
+
+    private boolean isWithinWindow(Challenge c, LocalDate day) {
+        try {
+            if (c.getStartDate() != null && day.isBefore(LocalDate.parse(c.getStartDate()))) return false;
+            return c.getEndDate() == null || !day.isAfter(LocalDate.parse(c.getEndDate()));
+        } catch (java.time.format.DateTimeParseException e) {
+            log.error("[challenge] invalid date config challenge={} start={} end={}",
+                    c.getId(), c.getStartDate(), c.getEndDate());
+            return false;
+        }
+    }
 
     private int computeReps(Long userId, Challenge c) {
         List<Session> all = sessionRepo.findByUserIdOrderBySessionDateDesc(userId);

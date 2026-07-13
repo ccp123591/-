@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -40,7 +41,8 @@ class ChallengeServiceTest {
     private Challenge active(long id, String action, int target) {
         return Challenge.builder()
                 .id(id).title("挑战" + id).action(action).targetReps(target)
-                .startDate("2026-05-01").endDate("2026-05-31").status("ACTIVE")
+                .startDate(LocalDate.now().minusDays(1).toString())
+                .endDate(LocalDate.now().plusDays(1).toString()).status("ACTIVE")
                 .build();
     }
 
@@ -55,6 +57,15 @@ class ChallengeServiceTest {
         assertThat(list).hasSize(1);
         assertThat(list.get(0).getParticipantCount()).isEqualTo(42L);
         assertThat(list.get(0).getJoined()).isNull(); // me=null → 不带个人字段
+    }
+
+    @Test
+    void listActive_hides_expired_active_rows() {
+        Challenge expired = active(1L, "squat", 1000);
+        expired.setEndDate(LocalDate.now().minusDays(1).toString());
+        given(challengeRepo.findByStatusOrderByCreatedAtDesc("ACTIVE")).willReturn(List.of(expired));
+
+        assertThat(service.listActive(null)).isEmpty();
     }
 
     @Test
@@ -93,8 +104,27 @@ class ChallengeServiceTest {
     }
 
     @Test
+    void join_400_when_active_status_but_date_expired() {
+        Challenge c = active(1L, "squat", 1000);
+        c.setEndDate(LocalDate.now().minusDays(1).toString());
+        given(challengeRepo.findById(1L)).willReturn(Optional.of(c));
+
+        assertThatThrownBy(() -> service.join(7L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(400);
+        verify(participantRepo, never()).save(any());
+    }
+
+    @Test
     void onSessionCreated_aggregates_reps_within_window_and_marks_completed() {
         Challenge c = active(1L, "squat", 30);
+        String start = LocalDate.now().minusDays(10).toString();
+        String first = LocalDate.now().minusDays(5).toString();
+        String second = LocalDate.now().minusDays(3).toString();
+        String before = LocalDate.now().minusDays(11).toString();
+        c.setStartDate(start);
+        c.setEndDate(LocalDate.now().plusDays(10).toString());
         given(challengeRepo.findByStatusOrderByCreatedAtDesc("ACTIVE")).willReturn(List.of(c));
         given(participantRepo.existsByChallengeIdAndUserId(1L, 7L)).willReturn(true);
         given(participantRepo.findByChallengeIdAndUserId(1L, 7L))
@@ -102,10 +132,10 @@ class ChallengeServiceTest {
                         .id(11L).challengeId(1L).userId(7L).progressReps(0).completed(false).build()));
 
         // 三场 session：两场 squat（窗口内 20+15=35），一场 pushup（不计），一场过期 squat（窗口外，不计）
-        Session s1 = mkSession(7L, "squat", 20, "2026-05-10");
-        Session s2 = mkSession(7L, "squat", 15, "2026-05-12");
-        Session s3 = mkSession(7L, "pushup", 50, "2026-05-12");
-        Session s4 = mkSession(7L, "squat", 100, "2026-04-30"); // before window
+        Session s1 = mkSession(7L, "squat", 20, first);
+        Session s2 = mkSession(7L, "squat", 15, second);
+        Session s3 = mkSession(7L, "pushup", 50, second);
+        Session s4 = mkSession(7L, "squat", 100, before); // before window
         given(sessionRepo.findByUserIdOrderBySessionDateDesc(7L)).willReturn(List.of(s1, s2, s3, s4));
 
         service.onSessionCreated(7L, "squat", 15);

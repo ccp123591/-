@@ -53,7 +53,7 @@ class AuthServiceRefreshTest {
     void refresh_returns_new_access_when_jti_not_revoked() {
         primeValidRefresh("jti-1", 7L);
         given(refreshTokenStore.isRevoked("jti-1")).willReturn(false);
-        User u = User.builder().id(7L).nickname("Tom").role("USER").build();
+        User u = User.builder().id(7L).nickname("Tom").role("USER").status("ACTIVE").build();
         given(userRepo.findById(7L)).willReturn(Optional.of(u));
         given(jwtUtil.generateAccessToken(eq(7L), eq("Tom"), eq("USER"))).willReturn("new-access");
 
@@ -62,6 +62,20 @@ class AuthServiceRefreshTest {
         assertThatCode(() -> {}).doesNotThrowAnyException();
         verify(refreshTokenStore).isRevoked("jti-1");
         org.assertj.core.api.Assertions.assertThat(r).containsEntry("accessToken", "new-access");
+    }
+
+    @Test
+    void refresh_rejects_disabled_user() {
+        primeValidRefresh("jti-disabled", 7L);
+        given(refreshTokenStore.isRevoked("jti-disabled")).willReturn(false);
+        given(userRepo.findById(7L)).willReturn(Optional.of(
+                User.builder().id(7L).nickname("Tom").role("USER").status("DISABLED").build()));
+
+        assertThatThrownBy(() -> service.refresh("RT"))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getCode())
+                .isEqualTo(403);
+        verify(jwtUtil, never()).generateAccessToken(any(), any(), any());
     }
 
     @Test

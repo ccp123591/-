@@ -67,7 +67,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .headers(h -> h
-                .frameOptions(f -> f.disable())                    // H2 console iframe
+                .frameOptions(f -> f.sameOrigin())                 // H2 console iframe，同时防止跨站点击劫持
                 .contentTypeOptions(o -> {})                       // X-Content-Type-Options: nosniff
                 .referrerPolicy(r -> r.policy(
                     org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
