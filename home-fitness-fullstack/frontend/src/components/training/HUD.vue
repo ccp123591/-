@@ -60,8 +60,10 @@ defineProps({
   margin: 0 auto;
   border: 2px solid rgba(255, 255, 255, .08);
   transition: border-color .3s;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
   color: #fff;
 }
 .ring-cyan   { border-color: rgba(217, 119, 87, .42); }

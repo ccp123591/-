@@ -60,11 +60,13 @@ public class AdminController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword) {
         String kw = (keyword == null || keyword.isBlank()) ? null : keyword.trim();
-        Page<User> p = userRepo.search(kw, PageRequest.of(Math.max(0, page - 1), size,
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        Page<User> p = userRepo.search(kw, PageRequest.of(safePage - 1, safeSize,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         List<Map<String, Object>> items = p.getContent().stream()
                 .map(this::userMap).collect(Collectors.toList());
-        return ApiResult.ok(PageResult.of(items, p.getTotalElements(), page, size));
+        return ApiResult.ok(PageResult.of(items, p.getTotalElements(), safePage, safeSize));
     }
 
     @Operation(summary = "封禁用户")
@@ -88,9 +90,11 @@ public class AdminController {
     public ApiResult<PageResult<Session>> sessions(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Page<Session> p = sessionRepo.findAll(PageRequest.of(Math.max(0, page - 1), size,
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        Page<Session> p = sessionRepo.findAll(PageRequest.of(safePage - 1, safeSize,
                 Sort.by(Sort.Direction.DESC, "sessionDate").and(Sort.by(Sort.Direction.DESC, "id"))));
-        return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), page, size));
+        return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), safePage, safeSize));
     }
 
     @Operation(summary = "数据分析")

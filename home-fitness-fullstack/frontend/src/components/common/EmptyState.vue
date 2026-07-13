@@ -31,13 +31,20 @@ defineProps({
   text-align: center;
 }
 .empty-icon {
-  width: 80px; height: 80px;
+  width: 88px; height: 88px;
   display: flex; align-items: center; justify-content: center;
-  color: var(--text-3);
-  margin-bottom: 12px;
-  opacity: .6;
+  color: var(--cyan);
+  margin-bottom: 14px;
+  opacity: .55;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, var(--cyan-dim), transparent 72%);
+  animation: emptyBreath 4.5s ease-in-out infinite;
 }
-.empty-icon svg { width: 64px; height: 64px; }
+.empty-icon svg { width: 56px; height: 56px; }
+@keyframes emptyBreath {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-4px) scale(1.03); }
+}
 .empty p { font-size: 14px; color: var(--text-2); font-weight: 500; margin-bottom: 4px; }
 .empty span { font-size: 12px; color: var(--text-3); }
 </style>

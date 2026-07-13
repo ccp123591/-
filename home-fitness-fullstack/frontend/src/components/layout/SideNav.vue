@@ -142,11 +142,20 @@ function go(n) {
   transition: all var(--transition);
   text-align: left;
 }
+.side-item { position: relative; }
 .side-item:hover { background: var(--bg-card-2); color: var(--text); }
 .side-item.active {
-  background: linear-gradient(135deg, rgba(217, 119, 87, .10), rgba(217, 119, 87, .04));
+  background: var(--bg-card-2);
   color: var(--text);
-  box-shadow: inset 0 0 0 1px rgba(217, 119, 87, .22);
+}
+.side-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 3px; height: 16px;
+  border-radius: 3px;
+  background: var(--cyan);
 }
 .side-item.active .ico { color: var(--cyan); }
 .ico { width: 20px; height: 20px; flex-shrink: 0; }

@@ -22,6 +22,8 @@ public final class CoachPromptTemplates {
             - suggestion ≤ 80 字，给出可执行改进点。
             - encouragement ≤ 30 字，正向激励。
             - nextGoal ≤ 30 字，形如 "下次目标：12 次 深蹲"。
+            重要：若上下文含 formReview（视觉动作点评），优先据此指出具体姿态问题，
+            把"看到的"（formReview）与"数据算到的"（各项评分）结合成一段反馈；formReview 为空则忽略。
             """;
 
     public static final String SYSTEM_SUGGESTION = """

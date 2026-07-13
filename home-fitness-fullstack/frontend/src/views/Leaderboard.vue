@@ -186,15 +186,34 @@ function avatarStyle(name) {
 }
 .rank-1 {
   padding: 22px 10px 16px;
-  border-color: rgba(255, 215, 0, .4);
-  background: linear-gradient(180deg, rgba(255, 215, 0, .08), var(--bg-card));
+  border-color: rgba(224, 160, 80, .45);
+  background:
+    radial-gradient(80% 90% at 50% 0%, rgba(232, 183, 120, .18), transparent 60%),
+    var(--bg-card);
   transform: translateY(-8px);
+  box-shadow: var(--shadow-sm);
 }
 .rank-2 { padding-top: 16px; }
 .rank-3 { padding-top: 12px; }
 
 .rank-crown { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 24px; }
-.rank-medal { font-size: 24px; margin-bottom: 4px; }
+.rank-medal {
+  width: 30px; height: 30px;
+  margin: 0 auto 6px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--grad-primary);
+  box-shadow: var(--shadow-sm);
+}
+.rank-2 .rank-medal, .rank-3 .rank-medal {
+  background: var(--bg-elevated);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+}
 
 .pd-avatar {
   width: 48px; height: 48px;
@@ -220,9 +239,11 @@ function avatarStyle(name) {
 }
 .pd-name { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
 .pd-score {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 14px;
-  font-weight: 800;
-  color: var(--cyan);
+  font-weight: 600;
+  color: var(--text);
 }
 
 .rank-list {
@@ -247,8 +268,10 @@ function avatarStyle(name) {
 }
 .rk {
   width: 30px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-3);
   text-align: center;
 }

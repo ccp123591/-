@@ -30,3 +30,33 @@ class RoomFeatures(BaseModel):
     safetyScore: Optional[int] = None
     warnings: List[str] = []
     model: str = "placeholder-v0"
+
+
+class FormIssue(BaseModel):
+    """单条动作问题。joint: 涉及部位（knee/back/hip…）；severity: minor|major。"""
+
+    joint: Optional[str] = None
+    severity: str = "minor"
+    detail: str
+
+
+class FormCritique(BaseModel):
+    """动作视觉点评 — JoyAI-VL 看训练关键帧给出的自然语言反馈。"""
+
+    action: str
+    summary: str = ""
+    issues: List[FormIssue] = []
+    tips: List[str] = []
+    formScore: Optional[int] = None
+    model: str = "placeholder-v0"
+
+
+class SceneSummary(BaseModel):
+    """畅聊场景摘要 — JoyAI-VL 看畅聊抓帧，给对话模型注入'眼睛看到的'上下文。
+
+    summary 为空 = 视觉不可用/未启用，调用方应跳过注入而不是编造。
+    """
+
+    summary: str = ""
+    personPresent: Optional[bool] = None
+    model: str = "placeholder-v0"

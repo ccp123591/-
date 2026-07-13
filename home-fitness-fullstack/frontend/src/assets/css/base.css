@@ -1,51 +1,52 @@
 /* ============================================================
    FitCoach — Base / Reset / Variables / Typography
+   「瓷白与墨」：现代产品级优雅 — hairline 边框、分层阴影、
+   墨色主按钮（亮色主题）、表格数字、克制的单一强调色。
    ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  /* Anthropic dark palette */
-  --bg:          #141413;
-  --bg-card:     #1d1c1a;
-  --bg-card-2:   #252420;
-  --bg-elevated: #2e2c28;
-  --border:      rgba(232, 230, 220, .08);
-  --border-hover:rgba(232, 230, 220, .16);
+  /* Cocoa dark（默认暗色主题）— 暖可可，不是冷黑 */
+  --bg:          #1d1712;
+  --bg-card:     #27201a;
+  --bg-card-2:   #302921;
+  --bg-elevated: #3a3128;
+  --border:      rgba(240, 225, 205, .08);
+  --border-hover:rgba(240, 225, 205, .17);
 
-  /* Brand accents */
+  /* Brand accents — 单一暖赭为主，其余降饱和为辅助语义色 */
   --cyan:       #d97757;
   --cyan-dim:   rgba(217, 119, 87, .12);
-  --purple:     #6a9bcc;
-  --purple-dim: rgba(106, 155, 204, .14);
-  --green:      #788c5d;
-  --green-dim:  rgba(120, 140, 93, .16);
-  --orange:     #c78a63;
-  --orange-dim: rgba(199, 138, 99, .15);
-  --red:        #a86149;
-  --red-dim:    rgba(168, 97, 73, .14);
+  --purple:     #8da3c0;
+  --purple-dim: rgba(141, 163, 192, .12);
+  --green:      #7f9268;
+  --green-dim:  rgba(127, 146, 104, .14);
+  --orange:     #c99772;
+  --orange-dim: rgba(201, 151, 114, .13);
+  --red:        #b06450;
+  --red-dim:    rgba(176, 100, 80, .13);
 
-  /* Gradients */
-  --grad-primary: linear-gradient(135deg, #d97757 0%, #cc8a6e 100%);
-  --grad-green:   linear-gradient(135deg, #788c5d 0%, #94a47d 100%);
-  --grad-warm:    linear-gradient(135deg, #d97757 0%, #e0b08f 100%);
+  /* Gradients — 暗色主题主按钮走暖赭；亮色主题在 themes.css 覆写为墨色 */
+  --grad-primary: linear-gradient(180deg, #dd7c5b 0%, #c96442 100%);
+  --grad-green:   linear-gradient(180deg, #86996e 0%, #75885e 100%);
+  --grad-warm:    linear-gradient(180deg, #dd7c5b 0%, #cf8a64 100%);
 
   /* Text */
-  --text:   #faf9f5;
-  --text-2: rgba(250, 249, 245, .68);
-  --text-3: rgba(250, 249, 245, .4);
+  --text:   #f6f5f0;
+  --text-2: rgba(246, 245, 240, .66);
+  --text-3: rgba(246, 245, 240, .38);
 
-  /* Alias tokens（Challenges/Emotion/Room 等页面使用的语义名，
-     用 var() 间接引用 → 跟随各主题自动切换） */
+  /* Alias tokens（Challenges/Emotion/Room 等页面使用的语义名） */
   --text-strong: var(--text);
   --text-soft:   var(--text-2);
   --bg-elev:     var(--bg-elevated);
   --bg-input:    var(--bg-card-2);
 
-  /* Layout */
-  --radius-lg:  20px;
-  --radius:     16px;
-  --radius-sm:  12px;
-  --radius-xs:  8px;
+  /* Layout — 大圆角，柔和亲切 */
+  --radius-lg:  22px;
+  --radius:     18px;
+  --radius-sm:  13px;
+  --radius-xs:  9px;
 
   /* Breakpoints for reference (used in media queries) */
   --bp-sm: 480px;
@@ -63,24 +64,24 @@
   --sp-8: 32px;
   --sp-10: 40px;
 
-  /* Typography */
-  --font-heading: 'Poppins', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-body: 'Lora', Georgia, 'PingFang SC', 'Microsoft YaHei', serif;
-  --font-ui: 'Poppins', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  /* Typography — Baloo 2 圆润友好 */
+  --font-heading: 'Baloo 2', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-body: 'Baloo 2', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-ui: 'Baloo 2', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'Spline Sans Mono', 'SF Mono', Consolas, monospace;
 
   /* Motion */
   --transition:   .22s cubic-bezier(.4, 0, .2, 1);
   --transition-slow: .4s cubic-bezier(.4, 0, .2, 1);
 
-  /* Shadows */
-  --shadow-sm: 0 2px 10px rgba(10, 10, 10, .12);
-  --shadow:    0 12px 32px rgba(10, 10, 10, .18);
-  --shadow-lg: 0 24px 64px rgba(10, 10, 10, .24);
+  /* Shadows — 分层、克制 */
+  --shadow-sm: 0 1px 2px rgba(8, 8, 6, .2), 0 3px 10px rgba(8, 8, 6, .12);
+  --shadow:    0 1px 2px rgba(8, 8, 6, .22), 0 12px 32px rgba(8, 8, 6, .2);
+  --shadow-lg: 0 2px 4px rgba(8, 8, 6, .24), 0 24px 64px rgba(8, 8, 6, .3);
 
   /* Surfaces with translucency (nav / toast / floating overlays) */
-  --nav-bg:     rgba(20, 20, 19, .86);
-  --overlay-bg: rgba(29, 28, 26, .92);
+  --nav-bg:     rgba(22, 21, 19, .84);
+  --overlay-bg: rgba(30, 29, 26, .92);
 
   /* Navigation height */
   --tab-h: 64px;
@@ -99,8 +100,8 @@ body {
   font-size: 15px;
   line-height: 1.65;
   background:
-    radial-gradient(circle at top left, rgba(217, 119, 87, .10), transparent 28%),
-    radial-gradient(circle at right 18%, rgba(106, 155, 204, .08), transparent 24%),
+    radial-gradient(110% 55% at 50% -10%, rgba(224, 150, 100, .10), transparent 55%),
+    radial-gradient(80% 40% at 100% 100%, rgba(232, 183, 120, .06), transparent 50%),
     var(--bg);
   color: var(--text);
   overflow-x: hidden;
@@ -116,7 +117,7 @@ body::before {
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: .038;
+  opacity: .028;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
   background-size: 144px;
 }
@@ -126,26 +127,27 @@ button { background: none; border: none; cursor: pointer; }
 a { color: inherit; text-decoration: none; }
 img, svg { display: block; max-width: 100%; }
 
-p, li, dd, dt, blockquote { font-family: var(--font-body); }
 label, small, .page-subtitle, .sub, .section-head .more { font-family: var(--font-ui); }
 
 /* Scrollbar (webkit) */
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, .1);
-  border-radius: 4px;
+  background: rgba(128, 128, 120, .28);
+  border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .2); }
+::-webkit-scrollbar-thumb:hover { background: rgba(128, 128, 120, .45); }
 
 /* Common utilities */
 .hidden { display: none !important; }
 .text-gradient {
-  background: linear-gradient(135deg, var(--text) 8%, var(--cyan) 100%);
+  background: linear-gradient(135deg, var(--text) 30%, var(--cyan) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+/* 数据数字：表格数字对齐 + 等宽字型，报表感 */
+.tnum { font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 
 .container {
   width: 100%;
@@ -163,14 +165,14 @@ label, small, .page-subtitle, .sub, .section-head .more { font-family: var(--fon
   .container { max-width: 1160px; }
 }
 
-/* Heading */
+/* Heading — 大字号、紧字距，Schibsted 的现代锋利感 */
 h1, h2, h3, h4 {
   font-family: var(--font-heading);
-  line-height: 1.15;
+  line-height: 1.1;
 }
-h1 { font-size: 38px; font-weight: 700; letter-spacing: -.05em; }
-h2 { font-size: 30px; font-weight: 700; letter-spacing: -.04em; }
-h3 { font-size: 20px; font-weight: 600; letter-spacing: -.03em; }
+h1 { font-size: clamp(34px, 4.5vw, 44px); font-weight: 700; letter-spacing: -.045em; }
+h2 { font-size: clamp(26px, 3.5vw, 32px); font-weight: 700; letter-spacing: -.035em; }
+h3 { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
 h4 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
 
 /* Form defaults */
@@ -188,7 +190,7 @@ input[type="tel"], input[type="number"], textarea, select {
 }
 input:focus, textarea:focus, select:focus {
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(217, 119, 87, .14);
+  box-shadow: 0 0 0 3px rgba(217, 119, 87, .13);
 }
 input[type="range"] { width: 100%; accent-color: var(--cyan); }
 

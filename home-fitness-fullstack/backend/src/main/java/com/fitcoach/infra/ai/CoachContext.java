@@ -55,6 +55,14 @@ public class CoachContext {
     /** 最近一次环境扫描的中文摘要，如"客厅约 8.5㎡，光线良好，右侧 1.2m 有沙发"。 */
     private String roomSummary;
 
+    // —— 本次动作视觉点评（JoyAI-VL 注入；缺省 null 表示未启用/无画面） ——
+    /** 本次训练关键帧的视觉点评摘要，如"深蹲整体不错但膝盖内扣、下蹲偏浅；动作标准度 78"。 */
+    private String formReview;
+
+    // —— 视频畅聊场景（JoyAI-VL 看畅聊抓帧；缺省 null 表示没开摄像头/视觉不可用） ——
+    /** 本轮对话时摄像头画面的场景摘要，如"用户正坐在瑜伽垫上压腿，客厅光线充足"。 */
+    private String sceneSummary;
+
     @Data
     @Builder
     @NoArgsConstructor

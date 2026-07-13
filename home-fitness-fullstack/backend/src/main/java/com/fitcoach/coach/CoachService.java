@@ -10,6 +10,9 @@ import com.fitcoach.infra.ai.ChatTurn;
 import com.fitcoach.infra.ai.CoachAiResponse;
 import com.fitcoach.infra.ai.CoachContext;
 import com.fitcoach.infra.memory.VectorMemoryService;
+import com.fitcoach.infra.vision.FormCritique;
+import com.fitcoach.infra.vision.SceneSummary;
+import com.fitcoach.infra.vision.VisionClient;
 import com.fitcoach.room.RoomLayoutService;
 import com.fitcoach.session.Session;
 import com.fitcoach.session.SessionRepository;
@@ -23,6 +26,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,6 +46,7 @@ public class CoachService {
     private final AiCoachProvider provider;
     private final EmotionService emotionService;
     private final UserRepository userRepo;
+    private final VisionClient visionClient;
     /** 弱依赖：profile 缺失（dev 没建表 / module 未加载）不应导致 coach 失败 */
     private final ObjectProvider<UserProfileRepository> profileRepoProvider;
     /** 弱依赖：向量记忆同样可选 */
@@ -51,6 +56,15 @@ public class CoachService {
 
     @Transactional
     public FeedbackResponse feedback(Long userId, Long sessionId) {
+        return feedback(userId, sessionId, null);
+    }
+
+    /**
+     * 训练后反馈。formReview 为本次动作的视觉点评摘要（JoyAI-VL，可空）——
+     * 注入上下文后，AI 把"看到的"和"数据算到的"结合成一段反馈。
+     */
+    @Transactional
+    public FeedbackResponse feedback(Long userId, Long sessionId, String formReview) {
         Session s = sessionRepo.findById(sessionId)
                 .orElseThrow(() -> new BusinessException(404, "训练记录不存在"));
         if (!s.getUserId().equals(userId)) {
@@ -58,6 +72,9 @@ public class CoachService {
         }
 
         CoachContext ctx = buildContext(userId, s);
+        if (formReview != null && !formReview.isBlank()) {
+            ctx.setFormReview(formReview.strip());
+        }
         CoachAiResponse ai = provider.feedback(ctx);
 
         CoachFeedback saved = persist(userId, sessionId, ai);
@@ -80,6 +97,18 @@ public class CoachService {
         return toResponse(saved, ai);
     }
 
+    /**
+     * 动作视觉点评 — 把训练关键帧交给 vision-svc(JoyAI-VL) 给自然语言反馈。
+     * 即时反馈，不落库；vision-svc 端点未启用时返回通用兜底（model=placeholder-v0）。
+     */
+    public FormCritique formCritique(Long userId, String action, Integer reps, Integer score,
+                                     List<MultipartFile> frames) {
+        FormCritique fc = visionClient.critique(action, reps, score, frames);
+        log.info("[coach] form-critique user={} action={} model={} score={}",
+                userId, action, fc == null ? null : fc.getModel(), fc == null ? null : fc.getFormScore());
+        return fc;
+    }
+
     @Transactional(readOnly = true)
     public PageResult<FeedbackResponse> history(Long userId, int page, int size) {
         int safePage = Math.max(0, page);
@@ -91,10 +120,27 @@ public class CoachService {
     }
 
     /**
+     * 视频畅聊场景摘要 — 把畅聊抓帧交给 vision-svc(JoyAI-VL) 描述"用户在干嘛"。
+     * 即时调用，不落库；返回的 summary 为空表示视觉不可用，前端应跳过注入。
+     */
+    public SceneSummary scene(Long userId, List<MultipartFile> frames) {
+        SceneSummary s = visionClient.scene(frames);
+        log.info("[coach] scene user={} model={} person={}",
+                userId, s == null ? null : s.getModel(), s == null ? null : s.getPersonPresent());
+        return s;
+    }
+
+    /** 陪伴聊天（无画面）。 */
+    public ChatResponse chat(Long userId, String message, List<ChatTurn> history) {
+        return chat(userId, message, history, null);
+    }
+
+    /**
      * 陪伴聊天：把当前消息当 RAG query 召回相关记忆，注入 ctx 后调 provider，
      * 然后把"用户说 / 我回了"两条都写回记忆库 — 下次再聊就能被唤醒。
+     * sceneSummary 为视频畅聊抓帧的场景摘要（JoyAI-VL，可空）——注入后 AI "看得见"用户。
      */
-    public ChatResponse chat(Long userId, String message, List<ChatTurn> history) {
+    public ChatResponse chat(Long userId, String message, List<ChatTurn> history, String sceneSummary) {
         if (message == null || message.isBlank()) {
             throw new BusinessException(400, "消息不能为空");
         }
@@ -103,6 +149,9 @@ public class CoachService {
         }
 
         CoachContext ctx = buildContext(userId, null);
+        if (sceneSummary != null && !sceneSummary.isBlank()) {
+            ctx.setSceneSummary(sceneSummary.strip());
+        }
 
         // 用「当前消息」作为 RAG query — 比 buildContext 默认 query 更精准
         String recalled = "";

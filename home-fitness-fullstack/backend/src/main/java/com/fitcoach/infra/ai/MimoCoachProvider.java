@@ -157,6 +157,10 @@ public class MimoCoachProvider implements AiCoachProvider {
         if (ctx.getRoomSummary() != null && !ctx.getRoomSummary().isBlank()) {
             sb.append("训练环境：").append(ctx.getRoomSummary()).append("\n");
         }
+        if (ctx.getSceneSummary() != null && !ctx.getSceneSummary().isBlank()) {
+            sb.append("你正通过摄像头看着用户，眼前画面：").append(ctx.getSceneSummary())
+              .append("（可自然地提及看到的内容，但别逐条播报，也别装作看到了画面之外的东西）\n");
+        }
         if (ctx.getRelevantHistory() != null && !ctx.getRelevantHistory().isBlank()) {
             sb.append("\n—— 相关历史记忆（仅在自然的时候引用，绝不要编造）——\n");
             sb.append(ctx.getRelevantHistory()).append("\n");

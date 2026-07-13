@@ -73,6 +73,62 @@ public class VisionClient {
         }
     }
 
+    /**
+     * POST /critique multipart（action + 1-3 frames，可带 reps/score）→ FormCritique。
+     * 动作视觉点评：把训练关键帧交给 JoyAI-VL 给自然语言反馈。
+     */
+    public FormCritique critique(String action, Integer reps, Integer score, List<MultipartFile> frames) {
+        if (action == null || action.isBlank()) {
+            throw new BusinessException(400, "缺少动作类型");
+        }
+        if (frames == null || frames.isEmpty()) {
+            throw new BusinessException(400, "未上传任何帧");
+        }
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("action", action);
+        if (reps != null) body.add("reps", String.valueOf(reps));
+        if (score != null) body.add("score", String.valueOf(score));
+        for (MultipartFile f : frames) {
+            body.add("frames", toResource(f));
+        }
+        try {
+            return restClient.post()
+                    .uri(baseUrl + "/critique")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(body)
+                    .retrieve()
+                    .body(FormCritique.class);
+        } catch (RestClientException e) {
+            log.warn("[vision] /critique 失败: {}", e.getMessage());
+            throw new BusinessException(503, "动作点评服务暂不可用");
+        }
+    }
+
+    /**
+     * POST /scene multipart（1-3 frames）→ SceneSummary。
+     * 视频畅聊场景摘要：把畅聊抓帧交给 JoyAI-VL 描述"用户在干嘛"。
+     */
+    public SceneSummary scene(List<MultipartFile> frames) {
+        if (frames == null || frames.isEmpty()) {
+            throw new BusinessException(400, "未上传任何帧");
+        }
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        for (MultipartFile f : frames) {
+            body.add("frames", toResource(f));
+        }
+        try {
+            return restClient.post()
+                    .uri(baseUrl + "/scene")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(body)
+                    .retrieve()
+                    .body(SceneSummary.class);
+        } catch (RestClientException e) {
+            log.warn("[vision] /scene 失败: {}", e.getMessage());
+            throw new BusinessException(503, "场景识别服务暂不可用");
+        }
+    }
+
     /** GET /healthz — 用于启动期/admin 检测。 */
     public boolean isHealthy() {
         try {

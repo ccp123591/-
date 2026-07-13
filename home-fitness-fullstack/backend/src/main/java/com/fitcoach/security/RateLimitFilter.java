@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ import java.nio.charset.StandardCharsets;
  *   /api/auth/{sms|email}/send    → 5 次 / 60s / IP
  *   /api/auth/register            → 3 次 / 60s / IP
  *   /api/auth/password/**         → 3 次 / 60s / IP
+ *   /api/safety/fall-alert        → 3 次 / 60s / IP
  *   其它放行（业务接口由认证保护，不在这里拦截）。
  *
  * 拦截到限流时返回 429 + Retry-After: 60 + JSON ApiResult。
@@ -35,6 +37,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final int WINDOW = 60;
 
     private final RateLimiter limiter;
+
+    @Value("${security.trust-proxy-headers:false}")
+    private boolean trustProxyHeaders;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -56,16 +61,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if (path == null) return null;
         if (path.startsWith("/api/auth/login/")) return new Capacity("auth.login", 5);
         if (path.matches("^/api/auth/(sms|email)/send$")) return new Capacity("auth.send", 5);
+        if (path.equals("/api/safety/fall-alert")) return new Capacity("safety.fall-alert", 3);
         if (path.equals("/api/auth/register")) return new Capacity("auth.register", 3);
         if (path.startsWith("/api/auth/password/")) return new Capacity("auth.password", 3);
         return null;
     }
 
-    private static String clientIp(HttpServletRequest req) {
-        String xff = req.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(xff)) return xff.split(",")[0].trim();
-        String real = req.getHeader("X-Real-IP");
-        if (StringUtils.hasText(real)) return real;
+    private String clientIp(HttpServletRequest req) {
+        // 仅在部署明确启用受信任反向代理时读取 X-Real-IP。
+        // nginx 会覆盖该头；不采信客户端可自行拼接的 X-Forwarded-For。
+        if (trustProxyHeaders) {
+            String real = req.getHeader("X-Real-IP");
+            if (StringUtils.hasText(real)) return real.trim();
+        }
         return req.getRemoteAddr();
     }
 

@@ -279,13 +279,13 @@ onBeforeUnmount(() => {
 .bg-glow {
   position: absolute;
   border-radius: 50%;
-  filter: blur(80px);
-  opacity: .5;
+  filter: blur(100px);
+  opacity: .16;
   pointer-events: none;
   z-index: 0;
 }
-.glow-1 { top: -100px; left: -100px; width: 300px; height: 300px; background: rgba(217, 119, 87, .9); }
-.glow-2 { bottom: -100px; right: -100px; width: 300px; height: 300px; background: rgba(106, 155, 204, .72); }
+.glow-1 { top: -120px; left: -120px; width: 340px; height: 340px; background: var(--cyan); }
+.glow-2 { bottom: -120px; right: -120px; width: 340px; height: 340px; background: var(--purple); }
 
 .login-wrap {
   position: relative;

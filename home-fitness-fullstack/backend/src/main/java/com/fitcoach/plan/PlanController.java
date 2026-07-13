@@ -33,10 +33,12 @@ public class PlanController {
     public ApiResult<PageResult<Plan>> list(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        PageRequest pr = PageRequest.of(Math.max(0, page - 1), size,
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        PageRequest pr = PageRequest.of(safePage - 1, safeSize,
                 Sort.by(Sort.Direction.DESC, "adoptCount"));
         Page<Plan> p = planRepo.findByPublishedTrue(pr);
-        return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), page, size));
+        return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), safePage, safeSize));
     }
 
     @Operation(summary = "官方推荐计划")
@@ -50,10 +52,12 @@ public class PlanController {
     public ApiResult<PageResult<Plan>> market(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        PageRequest pr = PageRequest.of(Math.max(0, page - 1), size,
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        PageRequest pr = PageRequest.of(safePage - 1, safeSize,
                 Sort.by(Sort.Direction.DESC, "adoptCount"));
         Page<Plan> p = planRepo.findByOfficialFalseAndPublishedTrue(pr);
-        return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), page, size));
+        return ApiResult.ok(PageResult.of(p.getContent(), p.getTotalElements(), safePage, safeSize));
     }
 
     @Operation(summary = "计划详情")
@@ -159,8 +163,7 @@ public class PlanController {
         up.setProgressDay(0);
         up.setStatus("ACTIVE");
         userPlanRepo.save(up);
-        plan.setAdoptCount((plan.getAdoptCount() == null ? 0 : plan.getAdoptCount()) + 1);
-        planRepo.save(plan);
+        planRepo.incrementAdoptCount(id);
         return ApiResult.ok(null, "已采用");
     }
 

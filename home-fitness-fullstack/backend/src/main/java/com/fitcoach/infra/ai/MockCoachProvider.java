@@ -47,6 +47,12 @@ public class MockCoachProvider implements AiCoachProvider {
             review = String.format("本次 %s %d 次，得分 %d，动作偏粗糙，建议放慢节奏、关注关键角度。", label, reps, score);
         }
 
+        // 融合视觉点评（JoyAI-VL）— 把"看到的"接到"数据算到的"后面
+        String formReview = ctx.getFormReview();
+        if (formReview != null && !formReview.isBlank()) {
+            review = review + " 画面观察：" + formReview.strip() + "。";
+        }
+
         String suggestion;
         if (score >= 80) {
             suggestion = String.format("可适当加大幅度或提高频率，下次目标 %d 次。", reps + 3);
@@ -172,6 +178,11 @@ public class MockCoachProvider implements AiCoachProvider {
                 if (lines.length > 0) sb.append("说到这个，我想起你提过 — ").append(lines[0].replace("- ", "").trim()).append("。");
             }
             sb.append("你接着说。");
+        }
+
+        // 视频畅聊场景摘要（JoyAI-VL 看到的）— mock 也自然带一句，方便 dev 验证注入链路
+        if (ctx.getSceneSummary() != null && !ctx.getSceneSummary().isBlank()) {
+            sb.append(" 对了，我从画面里看到：").append(ctx.getSceneSummary());
         }
 
         return ChatAiResponse.builder()

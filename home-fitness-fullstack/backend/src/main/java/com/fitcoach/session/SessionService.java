@@ -90,13 +90,15 @@ public class SessionService {
 
     public PageResult<Session> list(Long userId, int page, int size,
                                      String action, String startDate, String endDate) {
-        PageRequest pr = PageRequest.of(Math.max(0, page - 1), size,
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, Math.min(size, 100));
+        PageRequest pr = PageRequest.of(safePage - 1, safeSize,
                 Sort.by(Sort.Direction.DESC, "sessionDate").and(Sort.by(Sort.Direction.DESC, "id")));
         Page<Session> p = sessionRepo.search(userId,
                 blank(action) ? null : action,
                 blank(startDate) ? null : startDate,
                 blank(endDate) ? null : endDate, pr);
-        return PageResult.of(p.getContent(), p.getTotalElements(), page, size);
+        return PageResult.of(p.getContent(), p.getTotalElements(), safePage, safeSize);
     }
 
     public Session detail(Long userId, Long id) {
@@ -163,7 +165,7 @@ public class SessionService {
         try {
             return LocalDate.parse(d).toString();
         } catch (Exception e) {
-            return LocalDate.now().toString();
+            throw new BusinessException(400, "sessionDate must use yyyy-MM-dd format");
         }
     }
 

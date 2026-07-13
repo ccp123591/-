@@ -51,7 +51,7 @@ class RoomLayoutServiceTest {
                         .action("jumpingJack").reason("空间过小").build()))
                 .safetyScore(78)
                 .warnings(List.of("左侧 1.2m 处沙发，跳跃动作不安全"))
-                .model("placeholder")
+                .model("joyai-vl")
                 .build();
     }
 
@@ -82,6 +82,18 @@ class RoomLayoutServiceTest {
                 List.of(fakeJpg(), fakeJpg(), fakeJpg(), fakeJpg())))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("最多");
+    }
+
+    @Test
+    void scan_rejects_placeholder_safety_results() {
+        RoomFeatures placeholder = sampleFeatures();
+        placeholder.setModel("placeholder-v0");
+        given(visionClient.infer(any())).willReturn(placeholder);
+
+        assertThatThrownBy(() -> service.scan(7L, List.of(fakeJpg())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("无法生成可信");
+        verifyNoInteractions(repo);
     }
 
     @Test

@@ -13,7 +13,12 @@ services:
       SPRING_DATA_REDIS_PORT: "6379"
       AI_COACH_PROVIDER: ${AI_COACH_PROVIDER:-mock}
       MIMO_API_KEY: ${MIMO_API_KEY:-}
+      MIMO_BASE_URL: ${MIMO_BASE_URL:-https://api.xiaomimimo.com/v1}
+      MIMO_MODEL: ${MIMO_MODEL:-mimo-v2-flash}
       AI_TTS_PROVIDER: ${AI_TTS_PROVIDER:-browser}
+      MIMO_TTS_BASE_URL: ${MIMO_TTS_BASE_URL:-https://api.xiaomimimo.com/v1}
+      MIMO_TTS_MODEL: ${MIMO_TTS_MODEL:-mimo-v2-tts}
+      MIMO_TTS_VOICE: ${MIMO_TTS_VOICE:-default_zh}
       AI_MEMORY_ENABLED: ${AI_MEMORY_ENABLED:-true}
       VISION_BASE_URL: http://vision-svc:8081
       VISION_TIMEOUT_SECONDS: "30"
@@ -62,12 +67,59 @@ services:
     restart: unless-stopped
     ports:
       - "8081:8081"
+    environment:
+      # 留空 → 走占位推理（默认，无需 GPU）。
+      # 启用 JoyAI-VL：用 --profile joyai 起 joyai-vl 服务，并设 JOYAI_VL_BASE_URL=http://joyai-vl:8000/v1
+      JOYAI_VL_BASE_URL: ${JOYAI_VL_BASE_URL:-}
+      JOYAI_VL_MODEL: ${JOYAI_VL_MODEL:-joyai-vl}
+      JOYAI_VL_API_KEY: ${JOYAI_VL_API_KEY:-}
+      JOYAI_VL_TIMEOUT: ${JOYAI_VL_TIMEOUT:-25}
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8081/healthz', timeout=3).status==200 else 1)\""]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 15s
+    networks: [fitcoach]
+
+  # JoyAI-VL 自托管推理服务（京东开源视觉语言模型，vLLM OpenAI 兼容协议）。
+  # 仅 joyai profile 启用，且需要 NVIDIA GPU + Linux 宿主；本机无 GPU 不会启动。
+  #   docker compose --profile joyai up -d joyai-vl
+  joyai-vl:
+    image: vllm/vllm-openai:latest
+    container_name: fitcoach-joyai-vl
+    restart: unless-stopped
+    profiles: ["joyai"]
+    ipc: host  # vLLM 需要较大共享内存
+    ports:
+      - "8000:8000"
+    environment:
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
+    command:
+      - --model
+      - ${JOYAI_VL_HF_MODEL:-jdopensource/JoyAI-VL-Interaction-Preview}
+      - --served-model-name
+      - joyai-vl
+      - --trust-remote-code
+      - --port
+      - "8000"
+      - --limit-mm-per-prompt
+      - image=3
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status==200 else 1)\""]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 300s  # 首次需下载 ~16GB 权重并加载
     networks: [fitcoach]
 
   # 仅 prod profile 需要；dev 默认不会启动这个 service（用 docker compose --profile prod up）
@@ -110,6 +162,7 @@ volumes:
   backend-uploads:
   backend-logs:
   mysql-data:
+  hf-cache:
 
 networks:
   fitcoach:
