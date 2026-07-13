@@ -1,20 +1,38 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onBeforeUnmount } from 'vue';
 
 const show = ref(false);
 const num = ref(3);
+let timer = null;
+let resolveRun = null;
+
+function cancel() {
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+  show.value = false;
+  if (resolveRun) {
+    resolveRun(false);
+    resolveRun = null;
+  }
+}
 
 function run(from = 3) {
+  cancel();
   return new Promise(resolve => {
+    resolveRun = resolve;
     show.value = true;
     num.value = from;
     const tick = () => {
-      setTimeout(() => {
+      timer = setTimeout(() => {
+        timer = null;
         if (num.value > 1) { num.value--; tick(); }
         else if (num.value === 1) { num.value = 0; tick(); }
         else {
           show.value = false;
-          resolve();
+          resolveRun = null;
+          resolve(true);
         }
       }, 800);
     };
@@ -22,7 +40,9 @@ function run(from = 3) {
   });
 }
 
-defineExpose({ run });
+onBeforeUnmount(cancel);
+
+defineExpose({ run, cancel });
 </script>
 
 <template>

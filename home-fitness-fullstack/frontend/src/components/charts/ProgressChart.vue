@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref, watch, nextTick } from 'vue';
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue';
 
 const props = defineProps({
   sessions: { type: Array, default: () => [] }
@@ -114,6 +114,7 @@ onMounted(async () => {
   draw();
   window.addEventListener('resize', draw);
 });
+onBeforeUnmount(() => window.removeEventListener('resize', draw));
 watch(() => props.sessions, draw, { deep: true });
 </script>
 

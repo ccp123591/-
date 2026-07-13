@@ -12,18 +12,34 @@ const router = useRouter();
 const app = useAppStore();
 const auth = useAuthStore();
 const session = ref(null);
+const loading = ref(true);
+const loadError = ref('');
 
 onMounted(async () => {
   const id = route.params.id;
-  if (auth.isLogin) {
-    try {
-      const s = await sessionApi.detail(id);
-      session.value = { ...s, date: s.sessionDate, synced: 1 };
-      return;
-    } catch (_) { /* 回退本地 */ }
+  let remoteLoadFailed = false;
+  try {
+    if (auth.isLogin) {
+      try {
+        const s = await sessionApi.detail(id);
+        session.value = { ...s, date: s.sessionDate, synced: 1 };
+        return;
+      } catch (_) {
+        remoteLoadFailed = true;
+      }
+    }
+    const all = await storage.getAllSessions();
+    session.value = all.find(s => String(s.remoteId ?? s.localId) === String(id)) || null;
+    if (!session.value) {
+      loadError.value = remoteLoadFailed
+        ? '训练记录加载失败，请检查网络后重试'
+        : '未找到该条训练记录';
+    }
+  } catch (_) {
+    loadError.value = '训练记录加载失败，请稍后重试';
+  } finally {
+    loading.value = false;
   }
-  const all = await storage.getAllSessions();
-  session.value = all.find(s => String(s.remoteId ?? s.localId) === String(id)) || all[0];
 });
 
 function actionLabel(c) { return ACTION_DEFS[c]?.label || c; }
@@ -40,7 +56,9 @@ function fmt(s) {
       返回
     </button>
 
-    <div v-if="session" class="detail-wrap">
+    <div v-if="loading" class="detail-state">正在加载训练记录…</div>
+    <div v-else-if="loadError" class="detail-state error" role="alert">{{ loadError }}</div>
+    <div v-else-if="session" class="detail-wrap">
       <div class="detail-hero">
         <div class="action-badge">{{ actionLabel(session.action) }}</div>
         <div class="big-num">{{ session.reps }}</div>
@@ -98,6 +116,16 @@ function fmt(s) {
 }
 .back-btn:hover { color: var(--text); background: var(--bg-card-2); }
 .back-btn svg { width: 16px; height: 16px; }
+
+.detail-state {
+  padding: 32px 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--bg-card);
+  color: var(--text-2);
+  text-align: center;
+}
+.detail-state.error { color: var(--orange); }
 
 .detail-hero {
   padding: 28px 20px;
