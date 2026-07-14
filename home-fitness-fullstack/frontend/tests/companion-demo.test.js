@@ -46,5 +46,7 @@ test('demo branches return before coach, emotion and TTS API calls', async () =>
   }
 
   assert.match(source, /config\.demoMode \? Promise\.resolve\(\) : tryAutoSpeak/);
-  assert.match(source, /auth\.isLogin && !config\.demoMode/);
+  assert.match(source, /v-if="auth\.isLogin"[^>]+tab === 'voice'/);
+  assert.match(source, /v-else-if="auth\.isLogin && tab === 'voice'"/);
+  assert.doesNotMatch(source, /enabled && tab\.value === 'voice'/);
 });

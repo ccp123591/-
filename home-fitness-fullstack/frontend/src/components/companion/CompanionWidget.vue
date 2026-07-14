@@ -502,8 +502,7 @@ watch(tab, async (v, old) => {
   if (v === 'chat') await scrollToBottom();
 });
 
-watch(() => config.demoMode, enabled => {
-  if (enabled && tab.value === 'voice') tab.value = 'chat';
+watch(() => config.demoMode, () => {
   suggestion.value = null;
   emotionMood.value = null;
 });
@@ -596,7 +595,7 @@ function displayText(m) {
         <!-- Tab 切换 -->
         <nav v-if="canChat" class="p-tabs">
           <button :class="['tab', { active: tab === 'chat' }]"  @click="tab = 'chat'">闲聊</button>
-          <button v-if="auth.isLogin && !config.demoMode" :class="['tab', { active: tab === 'voice' }]" @click="tab = 'voice'">
+          <button v-if="auth.isLogin" :class="['tab', { active: tab === 'voice' }]" @click="tab = 'voice'">
             畅聊<span class="tab-new">语音</span>
           </button>
           <button :class="['tab', { active: tab === 'snap' }]"  @click="tab = 'snap'">一句话</button>
@@ -689,7 +688,7 @@ function displayText(m) {
         </section>
 
         <!-- ============= 畅聊（语音 hands-free） ============= -->
-        <section v-else-if="auth.isLogin && !config.demoMode && tab === 'voice'" class="voice-area">
+        <section v-else-if="auth.isLogin && tab === 'voice'" class="voice-area">
           <VoiceCompanion ref="voiceRef" />
         </section>
 
