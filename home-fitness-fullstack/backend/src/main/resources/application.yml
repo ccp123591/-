@@ -76,6 +76,16 @@ ai:
       model: ${MIMO_TTS_MODEL:mimo-v2.5-tts}
       voice: ${MIMO_TTS_VOICE:mimo_default}
       format: ${MIMO_TTS_FORMAT:wav}
+  # 语音识别 ASR — 识别放在服务端，绕开移动端浏览器缺失的平台语音引擎。
+  # 与 TTS 不同，ASR 没有浏览器 fallback（浏览器端识别正是要绕开的东西）：
+  # provider=none 或 api-key 为空时，前端降级为文字输入。
+  asr:
+    provider: ${AI_ASR_PROVIDER:none}           # mimo | none
+    mimo:
+      api-key: ${MIMO_ASR_API_KEY:${MIMO_API_KEY:}}
+      base-url: ${MIMO_ASR_BASE_URL:${MIMO_BASE_URL:https://token-plan-cn.xiaomimimo.com/v1}}
+      model: ${MIMO_ASR_MODEL:mimo-v2.5-asr}
+      timeout-seconds: ${MIMO_ASR_TIMEOUT_SECONDS:30}
 
 # 环境建模 vision-svc
 vision:
