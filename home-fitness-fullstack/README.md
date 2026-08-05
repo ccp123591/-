@@ -166,6 +166,8 @@ npm run dev
 | `FRONTEND_PORT` / `BACKEND_PORT` / `VISION_PORT` / `REDIS_PORT` / `MYSQL_PORT` | — | 5173/8080/8081/6379/3306 | 宿主机端口冲突时可覆盖 |
 | `AI_COACH_PROVIDER` | — | mock | mock / mimo |
 | `MIMO_API_KEY` / `MIMO_BASE_URL` / `MIMO_MODEL` | mimo | — | 小米 MiMo 接入 |
+| `AI_ASR_PROVIDER` | 手机端语音 | none | none / mimo。**手机端要能语音输入必须设为 mimo**，见下方说明 |
+| `MIMO_ASR_MODEL` | — | mimo-v2.5-asr | 复用 `MIMO_API_KEY` 与网关，无需另行部署模型 |
 | `AI_MEMORY_ENABLED` | — | true | RAG 向量记忆开关 |
 | `AI_MEMORY_STORE` | — | memory | memory（内存）/ redis（未来）|
 | `AI_MEMORY_EMBEDDING` | — | mock | mock（确定性 hash）/ openai |
@@ -249,9 +251,15 @@ npm run dev
 4. **Redis**：所有限流 / 黑名单 / 锁定 / 排行榜缓存依赖 Redis，**强烈建议**生产配齐。Redis 不可用时各服务都会 fail-open（业务不中断，但安全控制降级）。
 5. **AI Coach**：默认 `mock`；切到 `mimo` 需配 `MIMO_API_KEY`。Mock provider 完全离线可用，UTF-8 中文反馈。
 6. **RAG**：默认 `memory` 内存存储（单实例上限 500/用户）。生产多实例需切到 `redis`（RediSearch，待实现）或 Qdrant/Pinecone 等。
-7. **安全头**：HSTS 1 年 + includeSubDomains、`X-Content-Type-Options:nosniff`、`Referrer-Policy:strict-origin-when-cross-origin`、`Permissions-Policy:camera=(self),microphone=(),geolocation=()`。HSTS 仅在 HTTPS 下生效。
+7. **安全头**：HSTS 1 年 + includeSubDomains、`X-Content-Type-Options:nosniff`、`Referrer-Policy:strict-origin-when-cross-origin`、`Permissions-Policy:camera=(self),microphone=(self),geolocation=()`。HSTS 仅在 HTTPS 下生效。
+   > ⚠️ `microphone` 必须是 `(self)` 而非空 `()`。空 allowlist 等于彻底禁用麦克风，语音畅聊会静默失效且极难排查。
 8. **观测**：`/actuator/health` (公开)、`/actuator/info` (公开)、`/actuator/metrics` (ADMIN)。每请求带 `X-Request-Id`，日志格式 `[rid] METHOD PATH status=X duration=Yms user=Z`。
 9. **跌倒预警**：检测与 JoyAI 无关，由浏览器 MediaPipe 完成。生产必须配置 SMTP；开发态 `log-mail` 只记日志，前端不再误报“已发送真实邮件”。
+10. **手机端语音输入**：浏览器的 `SpeechRecognition` 只是一层外壳，真正的识别引擎来自平台 —— 桌面 Chrome 走 Google 云端、Edge 走微软 Azure，都可用；但 **Android Chrome 依赖设备端 GMS/Google App（国行手机通常没有）、iOS 仅 Safari 本体有、微信等 WKWebView/X5 完全不提供**。引擎缺失时 `start()` 后既无 `onresult` 也无 `onerror`，界面会停在"监听中"毫无反应。
+    - 手机端要能语音输入，须设 `AI_ASR_PROVIDER=mimo` 走服务端识别（`mimo-v2.5-asr`，与 chat/TTS 同一网关同一 key，**无需自部署模型**，区别于需要自建 GPU 服务的 JoyAI-VL）。
+    - 保持 `none` 时前端自动降级为文字输入，对话仍可闭环（AI 回复照常语音播报）。
+    - 采集固定 16kHz 单声道 WAV：上游网关只接受 `wav` / `mp3`，而 `MediaRecorder` 的原生输出（Android webm/opus、iOS mp4/aac）均不被接受，因此前端用 `AudioContext` 采 PCM 自行编码，见 `frontend/src/modules/wavRecorder.js`。
+    - 前置条件：`getUserMedia` 要求安全上下文，部署必须是 HTTPS（或 localhost）。
 
 ---
 
