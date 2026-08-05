@@ -20,7 +20,7 @@ const DEFAULT_CONFIG = {
   metronomeEnabled: false,
   autoPauseEnabled: true,
   coachEnabled: true,
-  demoMode: true,
+  demoMode: false,
   companionEnabled: true,
   companionAutoSpeak: false,
   companionName: '小柯'

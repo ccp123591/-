@@ -1,5 +1,5 @@
 export const CONFIG_KEY = 'fitcoach_config';
-export const DEFAULT_DEMO_MODE = true;
+export const DEFAULT_DEMO_MODE = false;
 
 export function readDemoConfig() {
   if (typeof localStorage === 'undefined') return {};
