@@ -272,6 +272,7 @@ onMounted(() => { /* config 已在 App.vue 加载 */ });
   border: 1px solid var(--border);
   border-radius: 16px;
   margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
 }
 .card-head {
   display: flex;

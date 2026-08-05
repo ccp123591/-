@@ -161,6 +161,7 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 14px;
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 .dc-v {
   font-size: 28px;
@@ -216,9 +217,10 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 14px;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition);
 }
-.qk-card:hover { transform: translateY(-2px); border-color: var(--border-hover); }
+.qk-card:hover { transform: translateY(-2px); border-color: var(--border-hover); box-shadow: var(--shadow); }
 .qk-ico {
   width: 40px; height: 40px;
   border-radius: 12px;

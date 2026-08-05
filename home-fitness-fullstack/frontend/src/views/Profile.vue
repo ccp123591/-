@@ -144,6 +144,7 @@ onMounted(loadStats);
   margin-bottom: 16px;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 .profile-hero::before {
   content: '';
@@ -225,6 +226,7 @@ onMounted(loadStats);
   text-align: center;
   opacity: .45;
   filter: grayscale(80%);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition);
 }
 .badge-card.unlocked {
@@ -243,6 +245,7 @@ onMounted(loadStats);
   border: 1px solid var(--border);
   border-radius: 14px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 .menu-item {
   display: flex;

@@ -146,6 +146,7 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 4px;
+  box-shadow: var(--shadow-sm);
 }
 .tab {
   flex: 1;
@@ -171,11 +172,13 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 16px;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition);
 }
 .plan-card:hover {
   transform: translateY(-2px);
   border-color: var(--border-hover);
+  box-shadow: var(--shadow);
 }
 .plan-cover {
   height: 100px;
@@ -234,6 +237,7 @@ onMounted(async () => {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
+  box-shadow: var(--shadow-sm);
 }
 .mine-head {
   display: flex;

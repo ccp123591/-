@@ -136,6 +136,7 @@ function fmt(s) {
   margin-bottom: 16px;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow);
 }
 .detail-hero::before {
   content: '';
@@ -177,6 +178,7 @@ function fmt(s) {
   border: 1px solid var(--border);
   border-radius: 14px;
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 .score-card .v {
   font-size: 24px;
@@ -190,6 +192,7 @@ function fmt(s) {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
+  box-shadow: var(--shadow-sm);
 }
 .info-block .label { font-size: 11px; color: var(--text-3); margin-bottom: 10px; letter-spacing: .08em; }
 .kv {

@@ -19,8 +19,15 @@ function draw() {
   const W = rect.width, H = rect.height;
   ctx.clearRect(0, 0, W, H);
 
+  // Theme-aware colors (canvas can't read CSS vars directly)
+  const cs = getComputedStyle(document.documentElement);
+  const cMuted = cs.getPropertyValue('--text-3').trim() || 'rgba(127,127,127,.5)';
+  const cFaint = cs.getPropertyValue('--text-2').trim() || 'rgba(127,127,127,.7)';
+  const cGrid  = cs.getPropertyValue('--border').trim() || 'rgba(127,127,127,.12)';
+  const cCard  = cs.getPropertyValue('--bg-card').trim() || '#ffffff';
+
   if (!props.sessions.length) {
-    ctx.fillStyle = 'rgba(255, 255, 255, .22)';
+    ctx.fillStyle = cMuted;
     ctx.font = '500 13px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('暂无数据', W / 2, H / 2);
@@ -40,9 +47,9 @@ function draw() {
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const y = padding.top + chartH * (1 - i / 4);
-    ctx.strokeStyle = 'rgba(255,255,255,.04)';
+    ctx.strokeStyle = cGrid;
     ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(W - padding.right, y); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    ctx.fillStyle = cMuted;
     ctx.font = '500 10px Inter, sans-serif';
     ctx.textAlign = 'right';
     ctx.fillText(Math.round(maxReps * i / 4), padding.left - 8, y + 4);
@@ -54,8 +61,8 @@ function draw() {
     const h = ((d.reps || 0) / maxReps) * chartH;
     const y = padding.top + chartH - h;
     const g = ctx.createLinearGradient(x, y, x, padding.top + chartH);
-    g.addColorStop(0, 'rgba(217, 119, 87, .75)');
-    g.addColorStop(1, 'rgba(217, 119, 87, .1)');
+    g.addColorStop(0, 'rgba(217, 119, 87, .85)');
+    g.addColorStop(1, 'rgba(217, 119, 87, .14)');
     ctx.fillStyle = g;
     const r = Math.min(barWidth / 2, 4);
     ctx.beginPath();
@@ -67,7 +74,7 @@ function draw() {
     ctx.lineTo(x + barWidth / 2, padding.top + chartH);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    ctx.fillStyle = cMuted;
     ctx.font = '500 9px Inter, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText((d.date || '').slice(5, 10), x, padding.top + chartH + 16);
@@ -91,8 +98,7 @@ function draw() {
     const y = padding.top + chartH * (1 - (d.score || 0) / 100);
     ctx.fillStyle = '#c96442';
     ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 2 * Math.PI); ctx.fill();
-    ctx.fillStyle = 'var(--bg-card)';
-    ctx.fillStyle = getComputedStyle(canvas).getPropertyValue('background-color') || '#24221e';
+    ctx.fillStyle = cCard;
     ctx.beginPath(); ctx.arc(x, y, 1.6, 0, 2 * Math.PI); ctx.fill();
   });
 
@@ -100,12 +106,12 @@ function draw() {
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(217, 119, 87, .8)';
   ctx.beginPath(); ctx.arc(padding.left + 6, 14, 4, 0, 2 * Math.PI); ctx.fill();
-  ctx.fillStyle = 'rgba(255, 255, 255, .38)';
+  ctx.fillStyle = cFaint;
   ctx.font = '500 11px Inter, sans-serif';
   ctx.fillText('次数', padding.left + 16, 18);
   ctx.fillStyle = '#c96442';
   ctx.beginPath(); ctx.arc(padding.left + 60, 14, 4, 0, 2 * Math.PI); ctx.fill();
-  ctx.fillStyle = 'rgba(255, 255, 255, .38)';
+  ctx.fillStyle = cFaint;
   ctx.fillText('评分', padding.left + 70, 18);
 }
 
