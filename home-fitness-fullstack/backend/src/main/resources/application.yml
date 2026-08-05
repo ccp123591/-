@@ -55,8 +55,8 @@ ai:
     provider: ${AI_COACH_PROVIDER:mock}        # mock | mimo
     mimo:
       api-key: ${MIMO_API_KEY:}
-      base-url: ${MIMO_BASE_URL:https://api.xiaomimimo.com/v1}
-      model: ${MIMO_MODEL:mimo-v2-flash}
+      base-url: ${MIMO_BASE_URL:https://token-plan-cn.xiaomimimo.com/v1}
+      model: ${MIMO_MODEL:mimo-v2.5}
       max-tokens: 600
       temperature: 0.7
       timeout-seconds: 20
@@ -72,9 +72,9 @@ ai:
     provider: ${AI_TTS_PROVIDER:browser}        # mimo | browser
     mimo:
       api-key: ${MIMO_TTS_API_KEY:${MIMO_API_KEY:}}
-      base-url: ${MIMO_TTS_BASE_URL:https://api.xiaomimimo.com/v1}
-      model: ${MIMO_TTS_MODEL:mimo-v2-tts}
-      voice: ${MIMO_TTS_VOICE:default_zh}
+      base-url: ${MIMO_TTS_BASE_URL:https://token-plan-cn.xiaomimimo.com/v1}
+      model: ${MIMO_TTS_MODEL:mimo-v2.5-tts}
+      voice: ${MIMO_TTS_VOICE:mimo_default}
       format: ${MIMO_TTS_FORMAT:wav}
 
 # 环境建模 vision-svc
