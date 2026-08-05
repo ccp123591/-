@@ -134,6 +134,9 @@ export async function createDemoResponse(config) {
   if (url === '/coach/form-critique') return { summary: '动作节奏稳定，继续注意膝盖与脚尖方向一致。', issues: [], tips: ['下蹲时保持核心收紧'], formScore: 92, model: 'frontend-demo' };
   if (url === '/coach/scene') return { summary: '演示画面：用户位于整洁的居家训练区域。', personPresent: true, model: 'frontend-demo' };
   if (url.startsWith('/tts/')) return { fallbackText: data.text || '演示语音播报', provider: 'browser' };
+  // 演示模式不打真实 ASR：明确报不可用，前端走文字输入，行为确定可复现
+  if (url === '/asr/status') return { enabled: false };
+  if (url === '/asr/transcribe') return { text: '', provider: 'frontend-demo', durationSec: 0 };
 
   if (url === '/admin/dashboard') return { users: 1286, sessions: 8960, todaySessions: 126, dau: 342, pv7d: [72, 88, 91, 104, 98, 121, 126] };
   if (url === '/admin/users') return page([user, { ...user, id: 2, nickname: '晨跑小林' }], config);

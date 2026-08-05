@@ -2,22 +2,24 @@
  * useVoiceChat — 畅聊状态机
  *
  * 封装：
- *   1) 浏览器原生 STT（webkitSpeechRecognition / SpeechRecognition）
- *      - lang=zh-CN, continuous=true, interimResults=true
- *      - onresult 累积 finalTranscript，超过静音阈值（默认 1500ms）后视为一句完整发言
+ *   1) STT 引擎选择与自动降级（详见 @/modules/sttEngines）
+ *      - 桌面优先 native（Web Speech，低延迟、免流量、有实时中间结果）
+ *      - 移动端直接用 server（MiMo ASR）—— 移动端浏览器普遍没有可用的原生识别引擎
+ *      - native 运行中判定失效（engine-dead）时自动切 server，不让用户对着死麦克风说话
+ *      - 两者都不可用 → canListen=false，上层降级为文字输入
  *   2) 状态机：idle → listening → thinking → speaking → listening（循环）
- *   3) TTS 自动播报后端 ttsApi.speak 拿到的音频；播放期间停 STT 避免回声
- *   4) supported = false 时降级让上层提示「请用 Chrome/Edge」
+ *   3) TTS 自动播报后端 ttsApi.speak 拿到的音频；播放期间暂停采音避免回声/自录
  *
  * 暴露：
  *   state         ref('idle' | 'listening' | 'thinking' | 'speaking' | 'error')
- *   supported     bool —— 浏览器是否支持原生 STT
- *   interim       ref(string) —— 实时未定稿文字
+ *   canListen     ref(bool) —— 当前环境能否语音输入；false 时请用 say() 走文字
+ *   engineKind    ref('native' | 'server' | null)
+ *   level         ref(0..1) —— 实时音量（仅 server 引擎），供 UI 做波形
+ *   interim       ref(string) —— 实时未定稿文字（native 有；server 显示"识别中…"）
  *   transcripts   ref(Array<{ role:'user'|'assistant', content, time, recalled? }>)
- *   start()       开始畅聊：申请麦权限 + 开 STT 循环
- *   stop()        结束畅聊：停 STT + 停 TTS
- *   interruptTts() 用户开口时中断当前 TTS（高级，可选）
  *   error         ref(string|null)
+ *   start()/stop()/interruptTts()/clearTranscripts()
+ *   say(text)     —— 把一段文字当作用户发言送入对话（文字输入 / 快捷追问共用）
  *
  * 上层注入：
  *   chat(text, history, sceneSummary?) → Promise<{ reply, recalled, provider }>
@@ -28,138 +30,98 @@
  */
 
 import { ref, onBeforeUnmount } from 'vue';
+import { asrApi } from '@/api/asr';
+import { createNativeStt, createServerStt, hasNativeStt, isMobileBrowser } from '@/modules/sttEngines';
 
 const SILENCE_MS = 1500;    // 静音多久判定一句话说完
 const MAX_HISTORY = 8;      // 给后端的历史长度
 const SCENE_WAIT_MS = 2500; // 句子说完后最多再等画面摘要多久
 
-function getRecognitionCtor() {
-  if (typeof window === 'undefined') return null;
-  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
-}
+const ERROR_TEXT = {
+  denied: '麦克风权限被拒绝，请在浏览器设置里允许后重试。',
+  'no-mic': '没有检测到可用的麦克风。',
+  network: '网络不稳定，语音识别失败了。',
+  server: '语音识别服务未启用，请改用下方输入框打字。',
+  unsupported: '当前浏览器不支持语音输入，请改用下方输入框打字。',
+  'engine-dead': '当前设备的语音识别不可用，请改用下方输入框打字。'
+};
 
 export function useVoiceChat({ chat, speak, getSceneContext }) {
-  const Recognition = getRecognitionCtor();
-  const supported = !!Recognition;
-
-  const state       = ref('idle');                  // idle | listening | thinking | speaking | error
+  const state       = ref('idle');
   const interim     = ref('');
   const transcripts = ref([]);
   const error       = ref(null);
+  // 乐观初值：原生构造函数存在与否并不能说明引擎可用（移动端正是"存在但不工作"），
+  // 服务端 ASR 也可能补位，所以先允许尝试，由 start() 据实修正。
+  const canListen   = ref(true);
+  const engineKind  = ref(null);
+  const level       = ref(0);
 
-  // 内部状态（不响应式）
-  let recognition = null;
+  let engine = null;
   let currentAudio = null;
-  let finalBuf = '';
-  let silenceTimer = null;
-  let restartTimer = null;
-  let userStopped = true;                            // true=外部主动 stop，循环就别再启
-  let processing = false;                            // 防止同一句话重复入 chat
-  let scenePromise = null;                           // 本句话的画面摘要预取（开口时启动）
+  let userStopped = true;
+  let processing = false;
+  let scenePromise = null;
+  let serverAvailable = null;    // null=未探测 true/false=已知
 
-  function clearTimers() {
-    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-    if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
-  }
-
-  function destroyRecognition() {
-    if (!recognition) return;
+  /** 查询后端是否具备服务端识别能力（结果缓存，避免每次开麦都问）。 */
+  async function checkServerAsr() {
+    if (serverAvailable !== null) return serverAvailable;
     try {
-      recognition.onresult = null;
-      recognition.onerror  = null;
-      recognition.onend    = null;
-      recognition.onstart  = null;
-      recognition.abort();
-    } catch (_) { /* noop */ }
-    recognition = null;
-  }
-
-  function makeRecognition() {
-    const r = new Recognition();
-    r.lang = 'zh-CN';
-    r.continuous = true;
-    r.interimResults = true;
-    r.maxAlternatives = 1;
-
-    r.onresult = (e) => {
-      let interimText = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const res = e.results[i];
-        if (res.isFinal) {
-          finalBuf += res[0].transcript;
-        } else {
-          interimText += res[0].transcript;
-        }
-      }
-      interim.value = (finalBuf + interimText).trim();
-
-      // 用户一开口就并行"看一眼"画面 —— 抓帧+VLM 藏进说话时间里，不占回合延迟
-      if (getSceneContext && !scenePromise && interim.value) {
-        scenePromise = Promise.resolve().then(getSceneContext).catch(() => null);
-      }
-
-      // 任何时候一来语音 → 重置静音计时
-      if (silenceTimer) clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(() => {
-        flushUtterance().catch(() => {});
-      }, SILENCE_MS);
-    };
-
-    r.onerror = (e) => {
-      // no-speech / aborted 都属于可恢复，不报错给用户
-      const code = e?.error || 'unknown';
-      if (code === 'aborted' || code === 'no-speech' || code === 'audio-capture') {
-        return;
-      }
-      if (code === 'not-allowed' || code === 'service-not-allowed') {
-        error.value = '请允许麦克风权限';
-        state.value = 'error';
-        userStopped = true;
-        return;
-      }
-      // 其他网络/未知错误也不打断循环
-    };
-
-    r.onend = () => {
-      // 自动续听：用户没主动停 && 当前不是 thinking/speaking，就重启
-      if (userStopped) return;
-      if (state.value !== 'listening') return;
-      // 避免 Chrome 立即重启冲突
-      if (restartTimer) clearTimeout(restartTimer);
-      restartTimer = setTimeout(() => {
-        try { recognition && recognition.start(); }
-        catch (_) { /* already started or stopped */ }
-      }, 250);
-    };
-
-    return r;
-  }
-
-  async function startRecognition() {
-    if (!recognition) recognition = makeRecognition();
-    try {
-      recognition.start();
+      const res = await asrApi.status();
+      serverAvailable = !!res?.enabled;
     } catch (_) {
-      // 可能 onend 还没回调就再 start → 忽略
+      serverAvailable = false;
     }
+    return serverAvailable;
   }
 
-  function stopRecognition() {
-    clearTimers();
-    if (recognition) {
-      try { recognition.stop(); } catch (_) {}
+  function buildEngine(kind) {
+    const shared = {
+      silenceMs: SILENCE_MS,
+      onInterim: (t) => {
+        interim.value = t;
+        // 用户一开口就并行"看一眼"画面 —— 抓帧+VLM 藏进说话/上传时间里，不占回合延迟
+        if (getSceneContext && !scenePromise && t) {
+          scenePromise = Promise.resolve().then(getSceneContext).catch(() => null);
+        }
+      },
+      onLevel: (v) => { level.value = v; },
+      onFinal: (text) => { processUtterance(text).catch(() => {}); },
+      onError: handleEngineError
+    };
+    return kind === 'server' ? createServerStt(shared) : createNativeStt(shared);
+  }
+
+  /**
+   * 引擎报错统一处理。native 判定失效时尝试切 server —— 这是移动端最常见的路径：
+   * 构造函数存在（所以看起来"支持"）但底层引擎缺失，start() 后毫无动静。
+   */
+  async function handleEngineError(code, detail) {
+    if ((code === 'engine-dead' || code === 'unsupported')
+        && engine?.kind === 'native' && await checkServerAsr()) {
+      engine.destroy();
+      engine = buildEngine('server');
+      engineKind.value = 'server';
+      const ok = await engine.start();
+      if (ok) {
+        error.value = null;
+        state.value = 'listening';
+        return;
+      }
     }
+    // 到这里说明没有可用的语音通路了，明确告诉用户去打字，而不是停在"监听中"
+    if (code === 'engine-dead' || code === 'unsupported' || code === 'server') {
+      canListen.value = false;
+    }
+    error.value = ERROR_TEXT[code] || '语音输入出了点问题，请改用下方输入框打字。';
+    state.value = 'error';
+    userStopped = true;
+    level.value = 0;
+    if (detail) console.warn('[voice-chat] engine error:', code, detail);
   }
 
-  /** 一句话说完：取出转写文本交给 processUtterance。 */
-  async function flushUtterance() {
-    const text = (finalBuf + interim.value.slice(finalBuf.length)).trim();
-    finalBuf = '';
-    interim.value = '';
-    await processUtterance(text);
-  }
-
-  /** 把一段用户发言（语音转写 或 点选追问）走完 chat → TTS → 续听。 */
+  /** 把一段用户发言走完 chat → TTS → 续听。 */
   async function processUtterance(text) {
     if (processing || !text) return;
     processing = true;
@@ -167,8 +129,9 @@ export function useVoiceChat({ chat, speak, getSceneContext }) {
     transcripts.value.push({ role: 'user', content: text, time: Date.now() });
 
     state.value = 'thinking';
-    stopRecognition();          // thinking/speaking 期间停 STT
-    destroyRecognition();       // 彻底关掉避免 onend 续听竞态
+    interim.value = '';
+    if (engine) engine.pause();      // thinking/speaking 期间停止采音，避免把 AI 的声音录进去
+    level.value = 0;
 
     // 画面上下文：优先用开口时预取的；没有（如点选追问）就现取；超时不带画面
     let scene = null;
@@ -184,7 +147,7 @@ export function useVoiceChat({ chat, speak, getSceneContext }) {
     let reply = '', recalled = [], provider = null;
     try {
       const history = transcripts.value
-        .slice(-MAX_HISTORY * 2 - 1, -1)   // 不含本条
+        .slice(-MAX_HISTORY * 2 - 1, -1)
         .map(t => ({ role: t.role, content: t.content }));
       const res = await chat(text, history, scene);
       reply    = res?.reply || '我这边没听清，再说一遍好吗？';
@@ -198,34 +161,29 @@ export function useVoiceChat({ chat, speak, getSceneContext }) {
       role: 'assistant', content: reply, recalled, provider, time: Date.now()
     });
 
-    // —— Speak ——
     state.value = 'speaking';
     try {
       const tts = await speak(reply);
       await playTts(tts, reply);
     } catch (_) {
-      // 退化为浏览器朗读
       browserSpeak(reply);
     }
 
     processing = false;
 
-    // —— 续听（除非外部 stop） ——
-    if (!userStopped) {
+    if (!userStopped && engine) {
       state.value = 'listening';
-      startRecognition();
+      engine.resume();
     } else {
       state.value = 'idle';
     }
   }
 
-  /** 点选快捷追问：把这句话当作用户发言直接送入对话（不必开口）。 */
+  /** 点选快捷追问 / 文字输入：把这句话当作用户发言直接送入对话。 */
   async function say(text) {
     const t = (text || '').trim();
     if (!t || processing) return;
-    clearTimers();
     stopCurrentAudio();
-    // 不在畅聊进行中（idle/error）时，处理完不自动开麦
     if (state.value === 'idle' || state.value === 'error') userStopped = true;
     error.value = null;
     await processUtterance(t);
@@ -242,9 +200,7 @@ export function useVoiceChat({ chat, speak, getSceneContext }) {
         audio.play().catch(() => { currentAudio = null; browserSpeak(tts.fallbackText || fallbackText); resolve(); });
         return;
       }
-      // 仅 fallbackText → 浏览器朗读
       browserSpeak(tts?.fallbackText || fallbackText);
-      // 估算朗读时长，给个最低 1.2s
       const dur = Math.max(1200, (fallbackText?.length || 10) * 110);
       setTimeout(resolve, dur);
     });
@@ -258,16 +214,16 @@ export function useVoiceChat({ chat, speak, getSceneContext }) {
       u.rate = 0.96;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
-    } catch (_) {}
+    } catch (_) { /* noop */ }
   }
 
   function stopCurrentAudio() {
     if (currentAudio) {
-      try { currentAudio.pause(); } catch (_) {}
+      try { currentAudio.pause(); } catch (_) { /* noop */ }
       currentAudio = null;
     }
     if ('speechSynthesis' in window) {
-      try { window.speechSynthesis.cancel(); } catch (_) {}
+      try { window.speechSynthesis.cancel(); } catch (_) { /* noop */ }
     }
   }
 
@@ -276,34 +232,50 @@ export function useVoiceChat({ chat, speak, getSceneContext }) {
     if (state.value !== 'speaking') return;
     stopCurrentAudio();
     state.value = 'listening';
-    startRecognition();
+    if (engine) engine.resume();
   }
 
+  /**
+   * 开始畅聊。移动端跳过原生引擎直接用服务端 —— 原生在手机上"看起来支持但不工作"，
+   * 先试再降级会白白让用户等一轮探测超时。
+   */
   async function start() {
-    if (!supported) {
-      error.value = '当前浏览器不支持语音识别，请用 Chrome / Edge / Opera。';
+    error.value = null;
+    const server = await checkServerAsr();
+    const kind = (isMobileBrowser() && server) ? 'server'
+      : hasNativeStt() ? 'native'
+        : server ? 'server' : null;
+
+    if (!kind) {
+      canListen.value = false;
+      error.value = ERROR_TEXT.unsupported;
       state.value = 'error';
       return;
     }
-    // 预热麦权限（更友好的提示）— 不阻塞，失败就让 STT onerror 自己 handle
-    try {
-      await navigator.mediaDevices?.getUserMedia?.({ audio: true });
-    } catch (_) { /* SpeechRecognition 自己也会再请求一次 */ }
 
-    error.value = null;
+    if (engine) engine.destroy();
+    engine = buildEngine(kind);
+    engineKind.value = kind;
+
     userStopped = false;
     state.value = 'listening';
-    startRecognition();
+    const ok = await engine.start();
+    if (ok) {
+      canListen.value = true;
+    } else if (state.value !== 'error') {
+      // start 返回 false 时 onError 通常已经报过；这里兜住没报的情况
+      state.value = 'error';
+    }
   }
 
   function stop() {
     userStopped = true;
-    clearTimers();
     stopCurrentAudio();
-    destroyRecognition();
+    if (engine) { engine.destroy(); engine = null; }
+    engineKind.value = null;
     state.value = 'idle';
     interim.value = '';
-    finalBuf = '';
+    level.value = 0;
     processing = false;
     scenePromise = null;
   }
@@ -315,7 +287,7 @@ export function useVoiceChat({ chat, speak, getSceneContext }) {
   onBeforeUnmount(() => { stop(); });
 
   return {
-    state, supported, interim, transcripts, error,
+    state, canListen, engineKind, level, interim, transcripts, error,
     start, stop, interruptTts, clearTranscripts, say
   };
 }

@@ -86,9 +86,21 @@ const chat = (msg, history, sceneSummary) => coachApi.chat(msg, history, sceneSu
 const speak = (text) => ttsApi.speak(text);
 
 const {
-  state, supported, interim, transcripts, error,
+  state, canListen, engineKind, level, interim, transcripts, error,
   start, stop, clearTranscripts, say
 } = useVoiceChat({ chat, speak, getSceneContext });
+
+/* ========== 文字输入（语音不可用时的降级路径） ==========
+   移动端浏览器普遍没有可用的原生识别引擎，服务端 ASR 又未必开着，
+   此时仍要保证对话闭环：打字提问，AI 照常语音播报回复。 */
+const draft = ref('');
+
+function submitDraft() {
+  const t = draft.value.trim();
+  if (!t) return;
+  draft.value = '';
+  say(t);
+}
 
 // 上次开着摄像头的话，开始畅聊时自动恢复
 watch(() => state.value, (v, prev) => {
@@ -102,8 +114,11 @@ const companionName = computed(() => config.companionName || '小柯');
 
 const statusLabel = computed(() => {
   if (error.value)               return error.value;
-  if (state.value === 'idle')    return supported ? '点开始，我们就开聊' : '请用 Chrome / Edge 打开';
-  if (state.value === 'listening') return interim.value ? '在听你说…' : '听你的，请说';
+  if (state.value === 'idle')    return canListen.value ? '点开始，我们就开聊' : '在下面打字，我照样陪你聊';
+  if (state.value === 'listening') {
+    if (interim.value) return interim.value === '识别中…' ? '识别中…' : '在听你说…';
+    return engineKind.value === 'server' ? '听你的，请说（说完稍等一下）' : '听你的，请说';
+  }
   if (state.value === 'thinking')  return '想想看…';
   if (state.value === 'speaking')  return '正在回你…';
   return '';
@@ -273,7 +288,7 @@ defineExpose({ stop, start });
       <button
         class="big"
         :class="{ on: state !== 'idle' && state !== 'error' }"
-        :disabled="!supported && state !== 'error'"
+        :disabled="!canListen"
         @click="toggle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
              stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -302,12 +317,29 @@ defineExpose({ stop, start });
       </button>
     </div>
 
+    <!-- 文字输入：常驻。语音能用时它是补充，不能用时它是唯一通路 —— 不依赖任何能力探测 -->
+    <form class="vc-compose" @submit.prevent="submitDraft">
+      <input
+        v-model="draft"
+        type="text"
+        class="vc-compose-input"
+        :placeholder="canListen ? `也可以直接打字问${companionName}…` : `在这里打字，${companionName}会念给你听`"
+        maxlength="200"
+        :disabled="state === 'thinking'">
+      <button type="submit" class="vc-compose-send" :disabled="!draft.trim() || state === 'thinking'">
+        发送
+      </button>
+    </form>
+
     <!-- 小贴士 -->
-    <p class="tip" v-if="state === 'idle' && supported && !visibleTurns.length">
+    <p class="tip" v-if="state === 'idle' && canListen && !visibleTurns.length">
       免按手 · 我说完会自动接着听你说
     </p>
-    <p class="tip warn" v-else-if="!supported">
-      你当前的浏览器不支持原生语音识别，建议用 Chrome / Edge。
+    <p class="tip" v-else-if="state === 'listening' && engineKind === 'server'">
+      这台设备用云端识别 · 说完停一下我就接上
+    </p>
+    <p class="tip warn" v-else-if="!canListen">
+      当前设备没有可用的语音识别，打字聊天一样能听到我的回答。
     </p>
     <p class="tip warn" v-if="camError">{{ camError }}</p>
   </div>
@@ -603,6 +635,46 @@ defineExpose({ stop, start });
 }
 .cam-toggle svg { width: 13px; height: 13px; }
 .cam-toggle.on { color: #7fd4a3; border-color: rgba(127,212,163,.5); background: rgba(127,212,163,.08); }
+
+.vc-compose {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  margin: 10px auto 0;
+}
+.vc-compose-input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  outline: none;
+  transition: border-color .18s ease;
+}
+.vc-compose-input::placeholder { color: var(--text-3); }
+.vc-compose-input:focus { border-color: var(--cyan, #5fa9c0); }
+.vc-compose-input:disabled { opacity: .5; }
+.vc-compose-send {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  background: var(--bg-card-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease;
+}
+.vc-compose-send:not(:disabled):hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: var(--cyan-dim);
+}
+.vc-compose-send:disabled { opacity: .45; cursor: not-allowed; }
 
 .tip {
   margin: 4px 0 2px;
