@@ -75,7 +75,7 @@ public class SecurityConfig {
                     .includeSubDomains(true)
                     .maxAgeInSeconds(31536000))
                 .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter(
-                    "Permissions-Policy", "camera=(self), microphone=(), geolocation=()")))
+                    "Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")))
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler))

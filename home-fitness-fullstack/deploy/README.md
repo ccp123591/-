@@ -170,7 +170,17 @@ vision-svc 会自动连接 `http://127.0.0.1:8000/v1`。
 
 ### 手机端语音助手没反应
 
-iOS Safari 和微信浏览器不支持 Web Speech API，属于平台限制。电脑端 Chrome/Edge 无此问题。
+先确认 `AI_ASR_PROVIDER=mimo`（默认 `none` 时前端只给文字输入）。启动脚本已默认开启，
+若手动传了环境变量请检查。仍然没反应时按顺序排查：
+
+1. **必须是 HTTPS**：`getUserMedia` 只在安全上下文可用，用 IP + http 访问一定拿不到麦克风。
+2. **nginx 的 `Permissions-Policy`**：`microphone` 必须是 `(self)`，写成空 `()` 等于彻底禁用，
+   且不报错、只静默失效。
+3. **后端日志**：`tail -f backend.log | grep -i asr`，401 说明 key 或网关不对。
+
+注意浏览器原生的 `SpeechRecognition` 在国行 Android（无 GMS）和微信 WKWebView/X5 里
+根本没有识别引擎，`start()` 后不触发任何回调 —— 这正是改走服务端 `mimo-v2.5-asr` 的原因，
+复用同一个 `MIMO_API_KEY` 和网关，不需要额外部署模型。
 
 ## 相关文档
 
