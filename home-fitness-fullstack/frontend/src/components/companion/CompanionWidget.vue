@@ -478,6 +478,9 @@ function collapse() {
 
 function onDocClick(e) {
   if (!open.value) return;
+  // 点中的元素可能已被 Vue 重渲染移除（如追问 chip 发送后即消失），
+  // 此时 contains 必然为 false，不能当成"点了外面"。
+  if (!e.target?.isConnected) return;
   if (widgetEl.value && !widgetEl.value.contains(e.target)) collapse();
 }
 function onKey(e) {
@@ -659,7 +662,7 @@ function displayText(m) {
 
           <div class="quick-row">
             <template v-if="followups.length">
-              <button v-for="p in followups" :key="p" class="chip" :disabled="sending" @click="sendMessage(p)">{{ p }}</button>
+              <button v-for="p in followups" :key="p" class="chip" :disabled="sending" @click.stop="sendMessage(p)">{{ p }}</button>
             </template>
             <template v-else>
               <button v-for="p in QUICK_PROMPTS" :key="p" class="chip" @click="applyPrompt(p)">{{ p }}</button>
