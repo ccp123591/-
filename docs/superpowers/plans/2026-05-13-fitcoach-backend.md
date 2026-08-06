@@ -958,7 +958,7 @@ logging:
 
 - [ ] **Step 1: docker-compose** — add `redis` service (`redis:7-alpine` with healthcheck), backend `depends_on: redis: condition: service_healthy`, env vars `SPRING_DATA_REDIS_HOST=redis`, `JWT_SECRET`, `MIMO_API_KEY`, `AI_COACH_PROVIDER`, `CORS_ALLOWED_ORIGINS`. Add `redis-data` volume.
 - [ ] **Step 2: Backend README** — table of new env vars + a "Production deploy" subsection.
-- [ ] **Step 3: Root README** — feature matrix update: every "占位" cell flipped to ✅ (except WeChat which is gone). Add MiMo and Redis to tech stack.
+- [ ] **Step 3: Root README** — feature matrix update: every "占位" cell flipped to done (except WeChat which is gone). Add MiMo and Redis to tech stack.
 - [ ] **Step 4: Final smoke** — `docker compose up --build` boots backend + redis; `curl localhost:8080/actuator/health` → UP.
 - [ ] **Step 5: Commit** — `git commit -m "chore: docker-compose adds redis; README updated for MiMo+Redis"`
 

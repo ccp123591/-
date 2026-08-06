@@ -71,7 +71,7 @@ JOYAI_VL_BASE_URL=http://localhost:8000/v1 python deploy/joyai-vl-smoke.py
 # 或：python deploy/joyai-vl-smoke.py http://localhost:8000/v1
 ```
 
-通过会打印 `/infer` 的房间识别结果和 `/critique` 的动作点评结果，末尾 `✓ JoyAI-VL 真链路自检通过`。
+通过会打印 `/infer` 的房间识别结果和 `/critique` 的动作点评结果，末尾输出「JoyAI-VL 真链路自检通过」。
 
 ## 常见问题
 

@@ -33,6 +33,11 @@ cd /opt/fitcoach/home-fitness-fullstack
 
 - `MIMO_API_KEY` — MiMo AI 教练的 API key (tp- 开头)
 - `TUNNEL_URL` (可选) — Cloudflare 隧道地址，会自动加入 CORS 白名单
+- `APP_ROOT` / `VENV_BIN` / `BACKEND_JAR` / `LOG_DIR` (可选) — 部署路径，默认见脚本首部
+
+脚本已内置的默认值：`SPRING_PROFILES_ACTIVE=dev`（H2 内存库）、`AI_COACH_PROVIDER=mimo`、`AI_TTS_PROVIDER=mimo`、`AI_ASR_PROVIDER=mimo` + `MIMO_ASR_MODEL=mimo-v2.5-asr`（应用默认是 `none`，脚本显式开启，手机端才有语音输入）、`VISION_BASE_URL=http://127.0.0.1:8081`、`SECURITY_TRUST_PROXY_HEADERS=true`（nginx 反代后取真实 IP）。
+
+> 注意默认是 **dev profile + H2 内存库**，进程重启数据即清空。要持久化需自行切 `SPRING_PROFILES_ACTIVE=prod` 并补齐 MySQL、`JWT_SECRET`、SMTP 等变量（见[根 README 环境变量清单](../README.md)）。
 
 ### 4. 构建
 
@@ -173,9 +178,10 @@ vision-svc 会自动连接 `http://127.0.0.1:8000/v1`。
 先确认 `AI_ASR_PROVIDER=mimo`（默认 `none` 时前端只给文字输入）。启动脚本已默认开启，
 若手动传了环境变量请检查。仍然没反应时按顺序排查：
 
-1. **必须是 HTTPS**：`getUserMedia` 只在安全上下文可用，用 IP + http 访问一定拿不到麦克风。
-2. **nginx 的 `Permissions-Policy`**：`microphone` 必须是 `(self)`，写成空 `()` 等于彻底禁用，
-   且不报错、只静默失效。
+1. **必须是 HTTPS**：`getUserMedia` 只在安全上下文可用（Cloudflare 隧道即可），
+   用 `http://IP:端口` 直连一定拿不到麦克风。
+2. **`Permissions-Policy`**：`microphone` 必须是 `(self)`，写成空 `()` 等于彻底禁用，
+   且不报错、只静默失效。后端 `SecurityConfig` 已发 `(self)`，若 nginx 另外覆盖了该响应头需一并检查。
 3. **后端日志**：`tail -f backend.log | grep -i asr`，401 说明 key 或网关不对。
 
 注意浏览器原生的 `SpeechRecognition` 在国行 Android（无 GMS）和微信 WKWebView/X5 里
@@ -185,5 +191,5 @@ vision-svc 会自动连接 `http://127.0.0.1:8000/v1`。
 ## 相关文档
 
 - [vision-svc 部署文档](../vision-svc/deploy/README.md)
-- [Docker Compose 部署](../README.md#docker-compose-部署)
+- [Docker Compose 部署与完整环境变量清单](../README.md)
 - [MiMo API 文档](https://platform.xiaomimimo.com/)
