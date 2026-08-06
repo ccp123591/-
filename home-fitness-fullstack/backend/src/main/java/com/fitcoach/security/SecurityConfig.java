@@ -74,6 +74,8 @@ public class SecurityConfig {
                 .httpStrictTransportSecurity(hsts -> hsts
                     .includeSubDomains(true)
                     .maxAgeInSeconds(31536000))
+                // microphone 必须是 (self)：空 allowlist 等于彻底禁用麦克风，
+                // 语音畅聊/服务端 STT 会静默失效且极难排查。
                 .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter(
                     "Permissions-Policy", "camera=(self), microphone=(self), geolocation=()")))
             .exceptionHandling(ex -> ex

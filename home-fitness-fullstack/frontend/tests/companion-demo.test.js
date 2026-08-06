@@ -6,9 +6,10 @@ const componentPath = new URL('../src/components/companion/CompanionWidget.vue',
 const configPath = new URL('../src/stores/config.js', import.meta.url);
 const settingsPath = new URL('../src/views/Settings.vue', import.meta.url);
 
-test('demoMode is a persisted global setting and defaults to enabled', async () => {
+test('demoMode is a persisted global setting and defaults to disabled', async () => {
   const source = await readFile(configPath, 'utf8');
-  assert.match(source, /demoMode:\s*true/);
+  // 演示模式默认关闭：真实用户拿到的应是连后端的真实链路，演示是评委/离线场景的显式开关。
+  assert.match(source, /demoMode:\s*false/);
   assert.match(source, /demoMode:\s*demoMode\.value/);
   assert.match(source, /demoMode\.value\s*=\s*data\.demoMode/);
   assert.match(source, /coachEnabled, demoMode,/);
